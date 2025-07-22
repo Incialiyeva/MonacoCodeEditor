@@ -168,22 +168,13 @@ export class MonacoEditorComponent implements AfterViewInit {
   // Dil seçilince sekme ekle veya mevcut sekmeye geç
   onLanguageChange(event: any) {
     const lang = this.selectedLanguage;
-    let tabIdx = 0;
-    // Eğer sekme zaten açıksa ona geç
-    const existing = this.openTabs.find(t => t.lang === lang);
-    if (existing) {
-      this.selectTabUniversal(existing.lang, existing.idx);
-      return;
-    }
-    // Yoksa yeni sekme ekle
-    tabIdx = 0;
-    this.openTabs.push({
-      lang,
-      idx: tabIdx,
-      name: this.getTabName(lang, tabIdx),
-      code: this.tabsByLanguage[lang][tabIdx].code
-    });
-    this.selectTabUniversal(lang, tabIdx);
+    // O dil için kaç sekme var, ona göre isimlendir
+    const sameLangTabs = this.openTabs.filter(t => t.lang === lang);
+    const idx = sameLangTabs.length;
+    const name = this.getTabName(lang, idx);
+    const code = this.tabsByLanguage[lang][0]?.code || '';
+    this.openTabs.push({ lang, idx, name, code });
+    this.selectTabUniversal(lang, idx);
   }
 
   onThemeChange(event: any) {
