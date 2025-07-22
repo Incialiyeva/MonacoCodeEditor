@@ -22,6 +22,7 @@ export class MonacoEditorComponent implements AfterViewInit {
   languages: { value: string, label: string, icon: SafeHtml }[];
   selectedLanguage = 'javascript';
   selectedTheme = 'vs-dark';
+  dropdownOpen = false;
 
   // Her dil için sekmeler ve kodlar
   tabsByLanguage: Record<string, EditorTab[]> = {

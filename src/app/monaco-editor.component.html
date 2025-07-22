@@ -1,23 +1,22 @@
 <div class="editor-toolbar">
-  <div class="dropdown-group">
-    <label class="dropdown-btn">
+  <div class="dropdown-group" (clickOutside)="dropdownOpen = false">
+    <button class="dropdown-btn premium" (click)="dropdownOpen = !dropdownOpen" [attr.aria-expanded]="dropdownOpen">
       <span class="lang-icon" [innerHTML]="getLanguageIcon(selectedLanguage)"></span>
       {{ selectedLanguageLabel }}
-      <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
-      <select class="language-select" [(ngModel)]="selectedLanguage" (change)="onLanguageChange($event)">
-        <option *ngFor="let lang of languages" [value]="lang.value">
-          {{ lang.label }}
-        </option>
-      </select>
-    </label>
+      <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;transition:transform 0.2s;" [style.transform]="dropdownOpen ? 'rotate(180deg)' : ''"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
+    </button>
+    <div class="dropdown-menu premium" *ngIf="dropdownOpen">
+      <button *ngFor="let lang of languages" class="dropdown-item" [class.selected]="lang.value === selectedLanguage" (click)="selectedLanguage = lang.value; onLanguageChange($event); dropdownOpen = false">
+        <span class="lang-icon" [innerHTML]="getLanguageIcon(lang.value)"></span>
+        {{ lang.label }}
+      </button>
+    </div>
   </div>
   <button class="theme-toggle" title="Toggle dark/light mode" (click)="toggleTheme()">
     <ng-container *ngIf="selectedTheme === 'vs-dark'; else lightIcon">
-      <!-- Moon icon -->
       <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
     </ng-container>
     <ng-template #lightIcon>
-      <!-- Sun icon -->
       <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#f7df1e"/><g stroke="#f7df1e" stroke-width="2"><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></g></svg>
     </ng-template>
   </button>
@@ -32,7 +31,7 @@
     </button>
   </div>
 </div>
-<div class="tabbar">
+<div class="tabbar premium">
   <button *ngFor="let tab of allTabs" 
           [class.active]="activeTab.lang === tab.lang && activeTab.idx === tab.idx"
           (click)="selectTabUniversal(tab.lang, tab.idx)">
@@ -41,4 +40,4 @@
     <span class="close-btn" (click)="$event.stopPropagation(); closeTabUniversal(tab.lang, tab.idx)">&times;</span>
   </button>
 </div>
-<div #editorContainer class="editor-container"></div> 
+<div #editorContainer class="editor-container premium"></div> 
