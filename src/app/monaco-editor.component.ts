@@ -1,6 +1,7 @@
 import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 interface EditorTab {
   name: string;
@@ -18,11 +19,7 @@ export class MonacoEditorComponent implements AfterViewInit {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
   editor: any;
 
-  languages = [
-    { value: 'javascript', label: 'JavaScript' },
-    { value: 'html', label: 'HTML' },
-    { value: 'sql', label: 'SQL' }
-  ];
+  languages: { value: string, label: string, icon: SafeHtml }[];
   selectedLanguage = 'javascript';
   selectedTheme = 'vs-dark';
 
@@ -47,7 +44,37 @@ export class MonacoEditorComponent implements AfterViewInit {
     sql: 0
   };
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
+  openTabs: { lang: string, idx: number, name: string, code: string }[];
+  activeTab: { lang: string, idx: number };
+
+  constructor(
+    @Inject(PLATFORM_ID) private platformId: Object,
+    @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null
+  ) {
+    // SSR ortamında DomSanitizer undefined olabilir, bu yüzden kontrol et
+    const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
+    this.languages = [
+      {
+        value: 'javascript',
+        label: 'JavaScript',
+        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#F7DF1E"/><text x="7" y="23" font-size="16" font-family="monospace" fill="#222">JS</text></svg>`)
+      },
+      {
+        value: 'html',
+        label: 'HTML',
+        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E44D26"/><text x="5" y="23" font-size="16" font-family="monospace" fill="#fff">&lt;&gt;</text></svg>`)
+      },
+      {
+        value: 'sql',
+        label: 'SQL',
+        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#336791"/><ellipse cx="16" cy="16" rx="10" ry="6" fill="#fff"/><text x="8" y="21" font-size="14" font-family="monospace" fill="#336791">SQL</text></svg>`)
+      }
+    ];
+    this.openTabs = [
+      { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code }
+    ];
+    this.activeTab = { lang: 'javascript', idx: 0 };
+  }
 
   get selectedTab() {
     return this.tabsByLanguage[this.selectedLanguage][this.selectedTabIndexByLanguage[this.selectedLanguage]];
@@ -58,6 +85,11 @@ export class MonacoEditorComponent implements AfterViewInit {
     return found ? found.label : '';
   }
 
+  getLanguageIcon(lang: string): SafeHtml | null {
+    const found = this.languages.find(l => l.value === lang);
+    return found ? found.icon : null;
+  }
+
   // Sekme ismini seçili dilin label'ı ile oluştur
   getTabName(langValue: string, idx: number): string {
     const lang = this.languages.find(l => l.value === langValue);
@@ -65,12 +97,7 @@ export class MonacoEditorComponent implements AfterViewInit {
   }
 
   // Açık sekmeler (her dil için yalnızca bir sekme)
-  openTabs: { lang: string, idx: number, name: string, code: string }[] = [
-    { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code }
-  ];
-
   // Aktif sekme bilgisi
-  activeTab = { lang: 'javascript', idx: 0 };
 
   // Tüm sekmeleri tek bir diziye dönüştür
   get allTabs() {

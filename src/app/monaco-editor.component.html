@@ -1,28 +1,38 @@
 <div class="editor-toolbar">
   <button class="menu-btn" title="Menu">
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect y="4" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="9.5" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="15" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect y="5" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="11" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="17" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/></svg>
   </button>
   <div class="dropdown-group">
     <label class="dropdown-btn">
+      <span class="lang-icon" [innerHTML]="getLanguageIcon(selectedLanguage)"></span>
       {{ selectedLanguageLabel }}
-      <svg width="14" height="14" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
+      <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
       <select class="language-select" [(ngModel)]="selectedLanguage" (change)="onLanguageChange($event)">
-        <option *ngFor="let lang of languages" [value]="lang.value">{{ lang.label }}</option>
+        <option *ngFor="let lang of languages" [value]="lang.value">
+          {{ lang.label }}
+        </option>
       </select>
     </label>
   </div>
   <button class="theme-toggle" title="Toggle dark/light mode">
-    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
   </button>
   <div class="toolbar-actions">
-    <button class="toolbar-btn" (click)="formatDocument()">Format Document</button>
-    <button class="toolbar-btn" (click)="saveCode()">Save</button>
+    <button class="toolbar-btn" (click)="formatDocument()" title="Format Document">
+      <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:0.5rem;"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="#bfc7d5" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h4" stroke="#bfc7d5" stroke-width="2" stroke-linecap="round"/></svg>
+      Format
+    </button>
+    <button class="toolbar-btn" (click)="saveCode()" title="Save">
+      <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:0.5rem;"><path d="M5 20h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" fill="none" stroke="#bfc7d5" stroke-width="2"/><path d="M9 16v-6h6v6" stroke="#bfc7d5" stroke-width="2" stroke-linecap="round"/></svg>
+      Save
+    </button>
   </div>
 </div>
 <div class="tabbar">
   <button *ngFor="let tab of allTabs" 
           [class.active]="activeTab.lang === tab.lang && activeTab.idx === tab.idx"
           (click)="selectTabUniversal(tab.lang, tab.idx)">
+    <span class="lang-icon" [innerHTML]="getLanguageIcon(tab.lang)"></span>
     {{ tab.name }}
     <span class="close-btn" (click)="$event.stopPropagation(); closeTabUniversal(tab.lang, tab.idx)">&times;</span>
   </button>
