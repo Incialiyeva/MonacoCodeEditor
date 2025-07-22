@@ -1,0 +1,29 @@
+<div class="editor-toolbar">
+  <button class="menu-btn" title="Menu">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect y="4" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="9.5" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="15" width="22" height="2.5" rx="1.25" fill="#bfc7d5"/></svg>
+  </button>
+  <div class="dropdown-group">
+    <label class="dropdown-btn">
+      {{ selectedLanguageLabel }}
+      <svg width="14" height="14" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
+      <select class="language-select" [(ngModel)]="selectedLanguage" (change)="onLanguageChange($event)">
+        <option *ngFor="let lang of languages" [value]="lang.value">{{ lang.label }}</option>
+      </select>
+    </label>
+  </div>
+  <button class="theme-toggle" title="Toggle dark/light mode">
+    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
+  </button>
+  <div class="toolbar-actions">
+    <button class="toolbar-btn" (click)="formatDocument()">Format Document</button>
+    <button class="toolbar-btn" (click)="saveCode()">Save</button>
+  </div>
+</div>
+<div class="tabbar">
+  <button *ngFor="let tab of tabsByLanguage[selectedLanguage]; let i = index" 
+          [class.active]="selectedTabIndexByLanguage[selectedLanguage] === i"
+          (click)="selectTab(i)">
+    {{ tab.name }}
+  </button>
+</div>
+<div #editorContainer class="editor-container"></div> 

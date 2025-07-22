@@ -1,9 +1,9 @@
 import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { MonacoEditorComponent } from './monaco-editor.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [MonacoEditorComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
