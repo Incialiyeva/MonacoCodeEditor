@@ -1,7 +1,4 @@
 <div class="editor-toolbar">
-  <button class="menu-btn" title="Menu">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect y="5" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="11" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/><rect y="17" width="24" height="2.5" rx="1.25" fill="#bfc7d5"/></svg>
-  </button>
   <div class="dropdown-group">
     <label class="dropdown-btn">
       <span class="lang-icon" [innerHTML]="getLanguageIcon(selectedLanguage)"></span>
@@ -14,8 +11,15 @@
       </select>
     </label>
   </div>
-  <button class="theme-toggle" title="Toggle dark/light mode">
-    <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
+  <button class="theme-toggle" title="Toggle dark/light mode" (click)="toggleTheme()">
+    <ng-container *ngIf="selectedTheme === 'vs-dark'; else lightIcon">
+      <!-- Moon icon -->
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
+    </ng-container>
+    <ng-template #lightIcon>
+      <!-- Sun icon -->
+      <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#f7df1e"/><g stroke="#f7df1e" stroke-width="2"><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></g></svg>
+    </ng-template>
   </button>
   <div class="toolbar-actions">
     <button class="toolbar-btn" (click)="formatDocument()" title="Format Document">

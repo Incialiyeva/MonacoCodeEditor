@@ -1,4 +1,4 @@
-import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2 } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -49,7 +49,9 @@ export class MonacoEditorComponent implements AfterViewInit {
 
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
-    @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null
+    @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null,
+    private renderer: Renderer2,
+    private hostRef: ElementRef
   ) {
     // SSR ortamında DomSanitizer undefined olabilir, bu yüzden kontrol et
     const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
@@ -157,6 +159,8 @@ export class MonacoEditorComponent implements AfterViewInit {
           this.selectedTab.code = this.editor.getValue();
         });
       });
+      // İlk yüklemede class ekle
+      this.toggleTheme();
     }
   }
 
@@ -185,6 +189,23 @@ export class MonacoEditorComponent implements AfterViewInit {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       // @ts-ignore
       monaco.editor.setTheme(this.selectedTheme);
+    }
+  }
+
+  toggleTheme() {
+    this.selectedTheme = this.selectedTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
+    if (this.editor) {
+      // @ts-ignore
+      monaco.editor.setTheme(this.selectedTheme);
+    }
+    // Host elemente class ekle
+    const host = this.hostRef.nativeElement;
+    if (this.selectedTheme === 'vs-dark') {
+      this.renderer.removeClass(host, 'light-theme');
+      this.renderer.addClass(host, 'dark-theme');
+    } else {
+      this.renderer.removeClass(host, 'dark-theme');
+      this.renderer.addClass(host, 'light-theme');
     }
   }
 

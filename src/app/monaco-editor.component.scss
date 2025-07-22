@@ -1,9 +1,57 @@
 :host {
   display: block;
-  background: #181a20;
-  color: #e6e6e6;
   min-height: 100vh;
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
+:host-context(.dark-theme) {
+  background: #181a20;
+  color: #e6e6e6;
+}
+:host-context(.light-theme) {
+  background: #f7f7f7;
+  color: #23272e;
+}
+:host-context(.dark-theme) .editor-toolbar,
+:host-context(.dark-theme) .tabbar {
+  background: #23272e;
+  color: #e6e6e6;
+  border-bottom: 1px solid #23272e;
+}
+:host-context(.light-theme) .editor-toolbar,
+:host-context(.light-theme) .tabbar {
+  background: #fff;
+  color: #23272e;
+  border-bottom: 1px solid #e0e0e0;
+}
+:host-context(.dark-theme) .dropdown-btn,
+:host-context(.dark-theme) .toolbar-btn,
+:host-context(.dark-theme) .tabbar button {
+  background: #23272e;
+  color: #bfc7d5;
+  border: 1px solid #353945;
+}
+:host-context(.light-theme) .dropdown-btn,
+:host-context(.light-theme) .toolbar-btn,
+:host-context(.light-theme) .tabbar button {
+  background: #f7f7f7;
+  color: #23272e;
+  border: 1px solid #e0e0e0;
+}
+:host-context(.dark-theme) .tabbar button.active {
+  background: #181a20;
+  color: #fff;
+  border-bottom: 2px solid #4f8cff;
+}
+:host-context(.light-theme) .tabbar button.active {
+  background: #fff;
+  color: #23272e;
+  border-bottom: 2px solid #4f8cff;
+}
+:host-context(.dark-theme) .editor-container {
+  background: #181a20;
+}
+:host-context(.light-theme) .editor-container {
+  background: #fff;
 }
 
 .editor-toolbar {
