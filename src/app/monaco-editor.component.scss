@@ -91,15 +91,36 @@
   z-index: 1;
 }
 .tabbar button {
-  background: #23272e;
+  position: relative;
+}
+.close-btn {
   color: #bfc7d5;
+  margin-left: 0.5rem;
+  font-size: 1.1em;
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 0 0.4em;
+  transition: background 0.2s, color 0.2s;
+}
+.close-btn:hover {
+  background: #353945;
+  color: #ff4d4f;
+}
+.add-tab-btn {
+  background: #23272e;
+  color: #4f8cff;
   border: none;
   border-bottom: 2px solid transparent;
   padding: 0.4rem 1.2rem 0.4rem 1.2rem;
   border-radius: 6px 6px 0 0;
-  font-size: 1rem;
+  font-size: 1.2rem;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-bottom 0.2s;
+  margin-left: 0.5rem;
+  transition: background 0.2s, color 0.2s;
+}
+.add-tab-btn:hover {
+  background: #353945;
+  color: #fff;
 }
 .tabbar button.active {
   background: #181a20;

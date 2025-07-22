@@ -58,6 +58,61 @@ export class MonacoEditorComponent implements AfterViewInit {
     return found ? found.label : '';
   }
 
+  // Sekme ismini seçili dilin label'ı ile oluştur
+  getTabName(langValue: string, idx: number): string {
+    const lang = this.languages.find(l => l.value === langValue);
+    return lang ? `${lang.label} ${idx + 1}` : `Tab ${idx + 1}`;
+  }
+
+  // Açık sekmeler (her dil için yalnızca bir sekme)
+  openTabs: { lang: string, idx: number, name: string, code: string }[] = [
+    { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code }
+  ];
+
+  // Aktif sekme bilgisi
+  activeTab = { lang: 'javascript', idx: 0 };
+
+  // Tüm sekmeleri tek bir diziye dönüştür
+  get allTabs() {
+    return this.openTabs;
+  }
+
+  // Aktif sekmeyi seç
+  selectTabUniversal(lang: string, idx: number) {
+    this.activeTab = { lang, idx };
+    this.selectedLanguage = lang;
+    this.selectedTabIndexByLanguage[lang] = idx;
+    if (this.editor) {
+      this.editor.setModelLanguage(this.editor.getModel(), lang);
+      this.editor.setValue(this.tabsByLanguage[lang][idx].code);
+    }
+  }
+
+  // Kapatınca aktif sekme güncelle
+  closeTabUniversal(lang: string, idx: number) {
+    const tabIdx = this.openTabs.findIndex(t => t.lang === lang && t.idx === idx);
+    if (tabIdx > -1) {
+      this.openTabs.splice(tabIdx, 1);
+      // Eğer kapatılan sekme aktifse, başka açık sekme varsa ona geç
+      if (this.activeTab.lang === lang && this.activeTab.idx === idx) {
+        if (this.openTabs.length > 0) {
+          const next = this.openTabs[Math.max(0, tabIdx - 1)];
+          this.selectTabUniversal(next.lang, next.idx);
+        }
+      }
+    }
+  }
+
+  addTab() {
+    const lang = this.selectedLanguage;
+    const idx = this.tabsByLanguage[lang].length;
+    this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: '' });
+    this.selectedTabIndexByLanguage[lang] = idx;
+    if (this.editor) {
+      this.editor.setValue('');
+    }
+  }
+
   ngAfterViewInit() {
     if (isPlatformBrowser(this.platformId)) {
       // @ts-ignore
@@ -78,14 +133,25 @@ export class MonacoEditorComponent implements AfterViewInit {
     }
   }
 
+  // Dil seçilince sekme ekle veya mevcut sekmeye geç
   onLanguageChange(event: any) {
-    if (this.editor) {
-      // Tab index sıfırlanabilir veya mevcut index korunabilir
-      const tabIndex = this.selectedTabIndexByLanguage[this.selectedLanguage];
-      this.editor.setValue(this.tabsByLanguage[this.selectedLanguage][tabIndex].code);
-      // Monaco dilini değiştir
-      this.editor.setModelLanguage(this.editor.getModel(), this.selectedLanguage);
+    const lang = this.selectedLanguage;
+    let tabIdx = 0;
+    // Eğer sekme zaten açıksa ona geç
+    const existing = this.openTabs.find(t => t.lang === lang);
+    if (existing) {
+      this.selectTabUniversal(existing.lang, existing.idx);
+      return;
     }
+    // Yoksa yeni sekme ekle
+    tabIdx = 0;
+    this.openTabs.push({
+      lang,
+      idx: tabIdx,
+      name: this.getTabName(lang, tabIdx),
+      code: this.tabsByLanguage[lang][tabIdx].code
+    });
+    this.selectTabUniversal(lang, tabIdx);
   }
 
   onThemeChange(event: any) {
@@ -96,10 +162,7 @@ export class MonacoEditorComponent implements AfterViewInit {
   }
 
   selectTab(idx: number) {
-    this.selectedTabIndexByLanguage[this.selectedLanguage] = idx;
-    if (this.editor) {
-      this.editor.setValue(this.selectedTab.code);
-    }
+    // Artık kullanılmıyor, universal fonksiyon var
   }
 
   formatDocument() {

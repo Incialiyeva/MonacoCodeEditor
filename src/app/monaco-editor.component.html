@@ -20,10 +20,11 @@
   </div>
 </div>
 <div class="tabbar">
-  <button *ngFor="let tab of tabsByLanguage[selectedLanguage]; let i = index" 
-          [class.active]="selectedTabIndexByLanguage[selectedLanguage] === i"
-          (click)="selectTab(i)">
+  <button *ngFor="let tab of allTabs" 
+          [class.active]="activeTab.lang === tab.lang && activeTab.idx === tab.idx"
+          (click)="selectTabUniversal(tab.lang, tab.idx)">
     {{ tab.name }}
+    <span class="close-btn" (click)="$event.stopPropagation(); closeTabUniversal(tab.lang, tab.idx)">&times;</span>
   </button>
 </div>
 <div #editorContainer class="editor-container"></div> 
