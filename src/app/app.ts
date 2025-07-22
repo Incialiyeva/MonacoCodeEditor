@@ -4,8 +4,7 @@ import { MonacoEditorComponent } from './components/monaco-editor.component';
 @Component({
   selector: 'app-root',
   imports: [MonacoEditorComponent],
-  templateUrl: './app.html',
-  styleUrl: './app.scss'
+  template: `<app-monaco-editor></app-monaco-editor>`
 })
 export class App {
   protected readonly title = signal('monaco-editor-app');

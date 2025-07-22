@@ -1,4 +1,4 @@
-import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2 } from '@angular/core';
+import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -8,6 +8,13 @@ interface EditorTab {
   code: string;
 }
 
+declare global {
+  interface Window {
+    require: any;
+    monaco: any;
+  }
+}
+
 @Component({
   selector: 'app-monaco-editor',
   standalone: true,
@@ -15,11 +22,11 @@ interface EditorTab {
   templateUrl: './monaco-editor.component.html',
   styleUrls: ['./monaco-editor.component.scss']
 })
-export class MonacoEditorComponent implements AfterViewInit {
+export class MonacoEditorComponent implements AfterViewInit, OnInit {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
   editor: any;
 
-  languages: { value: string, label: string, icon: SafeHtml }[];
+  languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
   selectedTheme = 'vs-dark';
   dropdownOpen = false;
@@ -54,29 +61,34 @@ export class MonacoEditorComponent implements AfterViewInit {
     private renderer: Renderer2,
     private hostRef: ElementRef
   ) {
-    // SSR ortamında DomSanitizer undefined olabilir, bu yüzden kontrol et
-    const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
-    this.languages = [
-      {
-        value: 'javascript',
-        label: 'JavaScript',
-        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#F7DF1E"/><text x="7" y="23" font-size="16" font-family="monospace" fill="#222">JS</text></svg>`)
-      },
-      {
-        value: 'html',
-        label: 'HTML',
-        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E44D26"/><text x="5" y="23" font-size="16" font-family="monospace" fill="#fff">&lt;&gt;</text></svg>`)
-      },
-      {
-        value: 'sql',
-        label: 'SQL',
-        icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#336791"/><ellipse cx="16" cy="16" rx="10" ry="6" fill="#fff"/><text x="8" y="21" font-size="14" font-family="monospace" fill="#336791">SQL</text></svg>`)
-      }
-    ];
+    // openTabs ve activeTab burada kalabilir
     this.openTabs = [
       { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code }
     ];
     this.activeTab = { lang: 'javascript', idx: 0 };
+  }
+
+  ngOnInit() {
+    if (isPlatformBrowser(this.platformId)) {
+      const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
+      this.languages = [
+        {
+          value: 'javascript',
+          label: 'JavaScript',
+          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#F7DF1E"/><text x="7" y="23" font-size="16" font-family="monospace" fill="#222">JS</text></svg>`)
+        },
+        {
+          value: 'html',
+          label: 'HTML',
+          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E44D26"/><text x="5" y="23" font-size="16" font-family="monospace" fill="#fff">&lt;&gt;</text></svg>`)
+        },
+        {
+          value: 'sql',
+          label: 'SQL',
+          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#336791"/><ellipse cx="16" cy="16" rx="10" ry="6" fill="#fff"/><text x="8" y="21" font-size="14" font-family="monospace" fill="#336791">SQL</text></svg>`)
+        }
+      ];
+    }
   }
 
   get selectedTab() {
@@ -114,7 +126,7 @@ export class MonacoEditorComponent implements AfterViewInit {
     this.selectedTabIndexByLanguage[lang] = idx;
     if (this.editor) {
       this.editor.setModelLanguage(this.editor.getModel(), lang);
-      this.editor.setValue(this.tabsByLanguage[lang][idx].code);
+      this.editor.setValue(this.openTabs.find(t => t.lang === lang && t.idx === idx)?.code || '');
     }
   }
 
@@ -144,24 +156,24 @@ export class MonacoEditorComponent implements AfterViewInit {
   }
 
   ngAfterViewInit() {
-    if (isPlatformBrowser(this.platformId)) {
+    if (!isPlatformBrowser(this.platformId)) return;
+    // @ts-ignore
+    if (typeof window.require === 'function') {
       // @ts-ignore
       window.require.config({ paths: { 'vs': 'assets/monaco/vs' } });
       // @ts-ignore
       window.require(['vs/editor/editor.main'], () => {
         // @ts-ignore
-        this.editor = monaco.editor.create(this.editorContainer.nativeElement, {
-          value: this.selectedTab.code,
-          language: this.selectedLanguage,
-          theme: this.selectedTheme,
+        this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
+          value: 'function hello() {\n  console.log("Hello, Monaco!");\n}',
+          language: 'javascript',
+          theme: 'vs-dark',
           automaticLayout: true
         });
-        this.editor.onDidChangeModelContent(() => {
-          this.selectedTab.code = this.editor.getValue();
-        });
+        console.log('Monaco editor mounted!');
       });
-      // İlk yüklemede class ekle
-      this.toggleTheme();
+    } else {
+      console.error('Monaco loader.js (window.require) bulunamadı!');
     }
   }
 
@@ -206,13 +218,13 @@ export class MonacoEditorComponent implements AfterViewInit {
   }
 
   formatDocument() {
-    if (this.editor) {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
       this.editor.getAction('editor.action.formatDocument').run();
     }
   }
 
   saveCode() {
-    if (this.editor) {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
       const code = this.editor.getValue();
       // Burada kodu kaydetme işlemi yapılabilir, örnek olarak console.log
       console.log('Saved code:', code);
