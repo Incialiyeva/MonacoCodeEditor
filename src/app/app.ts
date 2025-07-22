@@ -1,5 +1,5 @@
 import { Component, signal } from '@angular/core';
-import { MonacoEditorComponent } from './monaco-editor.component';
+import { MonacoEditorComponent } from './components/monaco-editor.component';
 
 @Component({
   selector: 'app-root',
