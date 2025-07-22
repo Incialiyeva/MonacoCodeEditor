@@ -52,7 +52,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     sql: 0
   };
 
-  openTabs: { lang: string, idx: number, name: string, code: string }[];
+  openTabs: { lang: string, idx: number, name: string, code: string, language: string }[];
   activeTab: { lang: string, idx: number };
 
   constructor(
@@ -63,7 +63,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   ) {
     // openTabs ve activeTab burada kalabilir
     this.openTabs = [
-      { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code }
+      { lang: 'javascript', idx: 0, name: this.getTabName('javascript', 0), code: this.tabsByLanguage['javascript'][0].code, language: 'javascript' }
     ];
     this.activeTab = { lang: 'javascript', idx: 0 };
   }
@@ -124,9 +124,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     this.activeTab = { lang, idx };
     this.selectedLanguage = lang;
     this.selectedTabIndexByLanguage[lang] = idx;
-    if (this.editor) {
-      this.editor.setModelLanguage(this.editor.getModel(), lang);
-      this.editor.setValue(this.openTabs.find(t => t.lang === lang && t.idx === idx)?.code || '');
+    const tab = this.openTabs.find(t => t.lang === lang && t.idx === idx);
+    if (this.editor && tab) {
+      const model = this.editor.getModel();
+      // @ts-ignore
+      window.monaco.editor.setModelLanguage(model, tab.language);
+      this.editor.setValue(tab.code);
     }
   }
 
@@ -156,19 +159,25 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   }
 
   ngAfterViewInit() {
-    if (!isPlatformBrowser(this.platformId)) return;
-    // @ts-ignore
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
     if (typeof window.require === 'function') {
       // @ts-ignore
       window.require.config({ paths: { 'vs': 'assets/monaco/vs' } });
       // @ts-ignore
       window.require(['vs/editor/editor.main'], () => {
+        const tab = this.openTabs[0];
         // @ts-ignore
         this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
-          value: 'function hello() {\n  console.log("Hello, Monaco!");\n}',
-          language: 'javascript',
+          value: tab.code,
+          language: tab.language,
           theme: 'vs-dark',
           automaticLayout: true
+        });
+        this.editor.onDidChangeModelContent(() => {
+          const active = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
+          if (active) active.code = this.editor.getValue();
         });
         console.log('Monaco editor mounted!');
       });
@@ -185,7 +194,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     const idx = sameLangTabs.length;
     const name = this.getTabName(lang, idx);
     const code = this.tabsByLanguage[lang][0]?.code || '';
-    this.openTabs.push({ lang, idx, name, code });
+    this.openTabs.push({ lang, idx, name, code, language: lang });
     this.selectTabUniversal(lang, idx);
   }
 
