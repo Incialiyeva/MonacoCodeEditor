@@ -127,8 +127,11 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     const tab = this.openTabs.find(t => t.lang === lang && t.idx === idx);
     if (this.editor && tab) {
       const model = this.editor.getModel();
-      // @ts-ignore
-      window.monaco.editor.setModelLanguage(model, tab.language);
+      // Ensure the language is set to 'javascript' explicitly
+      if (lang === 'javascript') {
+        // @ts-ignore
+        window.monaco.editor.setModelLanguage(model, 'javascript');
+      }
       this.editor.setValue(tab.code);
     }
   }
@@ -163,15 +166,29 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       return;
     }
     if (typeof window.require === 'function') {
+      // Update the path to match the correct asset directory
       // @ts-ignore
-      window.require.config({ paths: { 'vs': 'assets/monaco/vs' } });
+      window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
+      // Set the Monaco environment to specify the base URL for workers
+      // @ts-ignore
+      window.MonacoEnvironment = {
+        getWorkerUrl: function (workerId: string, label: string) {
+          const baseUrl = window.location.origin + '/assets/monaco'; // Adjusted to remove duplicate 'vs'
+          return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+            self.MonacoEnvironment = {
+              baseUrl: '${baseUrl}'
+            };
+            importScripts('${baseUrl}/vs/base/worker/workerMain.js');
+          `)}`;
+        }
+      };
       // @ts-ignore
       window.require(['vs/editor/editor.main'], () => {
-        const tab = this.openTabs[0];
+        const tab = this.openTabs.find(t => t.lang === 'javascript') || this.openTabs[0];
         // @ts-ignore
         this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
           value: tab.code,
-          language: tab.language,
+          language: 'javascript',
           theme: 'vs-dark',
           automaticLayout: true
         });
