@@ -58,6 +58,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   openTabs: { lang: string, idx: number, name: string, code: string, language: string }[];
   activeTab: { lang: string, idx: number };
 
+  // Son kaydedilen kodu saklamak için
+  lastSavedCodeByTab: Record<string, string> = {};
+
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
     @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null,
@@ -257,6 +260,71 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       const code = this.editor.getValue();
       // Burada kodu kaydetme işlemi yapılabilir, örnek olarak console.log
       console.log('Saved code:', code);
+      // Aktif tab için kaydedilen kodu sakla
+      const tabKey = this.getActiveTabKey();
+      this.lastSavedCodeByTab[tabKey] = code;
+    }
+  }
+
+  // Aktif tab için benzersiz anahtar
+  getActiveTabKey(): string {
+    return `${this.activeTab.lang}_${this.activeTab.idx}`;
+  }
+
+  // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
+  showDiff() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const tabKey = this.getActiveTabKey();
+      const original = this.lastSavedCodeByTab[tabKey] || '';
+      const modified = this.editor.getValue();
+      // Monaco diff editor aç
+      const diffContainer = document.createElement('div');
+      diffContainer.style.width = '80vw';
+      diffContainer.style.height = '70vh';
+      diffContainer.style.position = 'fixed';
+      diffContainer.style.top = '10vh';
+      diffContainer.style.left = '10vw';
+      diffContainer.style.zIndex = '9999';
+      diffContainer.style.background = '#23272e';
+      diffContainer.style.border = '2px solid #4f8cff';
+      diffContainer.style.borderRadius = '12px';
+      diffContainer.style.boxShadow = '0 8px 32px #0006';
+      diffContainer.id = 'monaco-diff-container';
+      document.body.appendChild(diffContainer);
+      // @ts-ignore
+      window.require(['vs/editor/editor.main'], () => {
+        // @ts-ignore
+        const monaco = window.monaco;
+        const originalModel = monaco.editor.createModel(original, this.selectedLanguage);
+        const modifiedModel = monaco.editor.createModel(modified, this.selectedLanguage);
+        // @ts-ignore
+        const diffEditor = monaco.editor.createDiffEditor(diffContainer, {
+          theme: this.selectedTheme,
+          automaticLayout: true,
+        });
+        diffEditor.setModel({ original: originalModel, modified: modifiedModel });
+        // Kapatma butonu
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = 'Kapat';
+        closeBtn.style.position = 'absolute';
+        closeBtn.style.top = '12px';
+        closeBtn.style.right = '18px';
+        closeBtn.style.zIndex = '10000';
+        closeBtn.style.background = '#4f8cff';
+        closeBtn.style.color = '#fff';
+        closeBtn.style.border = 'none';
+        closeBtn.style.borderRadius = '6px';
+        closeBtn.style.padding = '0.5rem 1.2rem';
+        closeBtn.style.fontSize = '1rem';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.onclick = () => {
+          diffEditor.dispose();
+          originalModel.dispose();
+          modifiedModel.dispose();
+          diffContainer.remove();
+        };
+        diffContainer.appendChild(closeBtn);
+      });
     }
   }
 
