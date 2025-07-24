@@ -1,0 +1,45 @@
+<div class="editor-toolbar">
+  <div class="dropdown-group" (clickOutside)="dropdownOpen = false">
+    <button class="dropdown-btn premium" (click)="dropdownOpen = !dropdownOpen" [attr.aria-expanded]="dropdownOpen">
+      <span class="lang-icon" [innerHTML]="getLanguageIcon(selectedLanguage)"></span>
+      {{ selectedLanguageLabel }}
+      <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;transition:transform 0.2s;" [style.transform]="dropdownOpen ? 'rotate(180deg)' : ''"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
+    </button>
+    <div class="dropdown-menu premium" *ngIf="dropdownOpen">
+      <button *ngFor="let lang of languages" class="dropdown-item" [class.selected]="lang.value === selectedLanguage" (click)="selectedLanguage = lang.value; onLanguageChange($event); dropdownOpen = false">
+        <span class="lang-icon" [innerHTML]="getLanguageIcon(lang.value)"></span>
+        {{ lang.label }}
+      </button>
+    </div>
+  </div>
+  <button class="theme-toggle modern-btn" title="Toggle dark/light mode" (click)="toggleTheme()">
+    <ng-container *ngIf="selectedTheme === 'vs-dark'; else lightIcon">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
+    </ng-container>
+    <ng-template #lightIcon>
+      <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#f7df1e"/><g stroke="#f7df1e" stroke-width="2"><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></g></svg>
+    </ng-template>
+  </button>
+  <div class="toolbar-actions">
+    <button class="toolbar-btn modern-btn prettier-btn" (click)="formatCode()" title="Prettier">
+      <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:0.5rem;"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="#bfc7d5" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h4" stroke="#bfc7d5" stroke-width="2" stroke-linecap="round"/></svg>
+      Prettier
+    </button>
+    <button class="toolbar-btn modern-btn save-btn" (click)="saveCode()" title="Save">
+      <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:0.5rem;"><path d="M5 20h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" fill="none" stroke="#bfc7d5" stroke-width="2"/><path d="M9 16v-6h6v6" stroke="#bfc7d5" stroke-width="2" stroke-linecap="round"/></svg>
+      Save
+    </button>
+  </div>
+</div>
+<div class="tabbar premium">
+  <button *ngFor="let tab of allTabs" 
+          [class.active]="activeTab.lang === tab.lang && activeTab.idx === tab.idx"
+          (click)="selectTabUniversal(tab.lang, tab.idx)">
+    <span class="lang-icon" [innerHTML]="getLanguageIcon(tab.lang)"></span>
+    {{ tab.name }}
+    <span class="close-btn" (click)="$event.stopPropagation(); closeTabUniversal(tab.lang, tab.idx)">&times;</span>
+  </button>
+</div>
+<div class="editor-area">
+  <div #editorContainer class="editor-container" style="width:100%;height:400px;"></div>
+</div> 
