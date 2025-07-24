@@ -31,6 +31,7 @@
     "@angular/ssr": "^20.1.1",
     "express": "^5.1.0",
     "monaco-editor": "^0.52.2",
+    "prettier": "^3.2.5",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

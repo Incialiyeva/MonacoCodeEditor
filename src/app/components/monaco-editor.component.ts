@@ -2,6 +2,9 @@ import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, R
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import * as prettier from 'prettier/standalone';
+import * as parserBabel from 'prettier/plugins/babel';
+import * as parserEstree from 'prettier/plugins/estree';
 
 interface EditorTab {
   name: string;
@@ -254,6 +257,37 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       const code = this.editor.getValue();
       // Burada kodu kaydetme işlemi yapılabilir, örnek olarak console.log
       console.log('Saved code:', code);
+    }
+  }
+
+  // Add a method to format the code using Prettier
+  async formatCode() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      try {
+        const code = this.editor.getValue();
+        console.log('Prettier input code:', code);
+        const formatted = await prettier.format(code, {
+          parser: 'babel',
+          plugins: [parserBabel, parserEstree],
+          singleQuote: true
+        });
+        console.log('Prettier formatted:', formatted);
+        if (typeof formatted === 'string') {
+          const model = this.editor.getModel();
+          if (model) {
+            setTimeout(() => {
+              this.editor.setValue(formatted);
+            }, 0);
+          } else {
+            alert('Monaco Editor modeli bulunamadı!');
+          }
+        } else {
+          alert('Prettier kodu formatlayamadı!');
+        }
+      } catch (e: any) {
+        alert('Prettier formatlama hatası: ' + (e?.message || JSON.stringify(e)));
+        console.error('Prettier formatlama hatası:', e);
+      }
     }
   }
 } 
