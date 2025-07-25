@@ -324,6 +324,31 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
           diffContainer.remove();
         };
         diffContainer.appendChild(closeBtn);
+        // Kodu Güncelle butonu
+        const applyBtn = document.createElement('button');
+        applyBtn.innerText = 'Kodu Güncelle';
+        applyBtn.style.position = 'absolute';
+        applyBtn.style.top = '12px';
+        applyBtn.style.right = '110px';
+        applyBtn.style.zIndex = '10000';
+        applyBtn.style.background = '#43b77a';
+        applyBtn.style.color = '#fff';
+        applyBtn.style.border = 'none';
+        applyBtn.style.borderRadius = '6px';
+        applyBtn.style.padding = '0.5rem 1.2rem';
+        applyBtn.style.fontSize = '1rem';
+        applyBtn.style.cursor = 'pointer';
+        applyBtn.onclick = () => {
+          const newCode = modifiedModel.getValue();
+          if (this.editor) {
+            this.editor.setValue(newCode);
+          }
+          diffEditor.dispose();
+          originalModel.dispose();
+          modifiedModel.dispose();
+          diffContainer.remove();
+        };
+        diffContainer.appendChild(applyBtn);
       });
     }
   }
