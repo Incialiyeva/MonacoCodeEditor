@@ -171,13 +171,19 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   // Aktif sekmeyi seç
   selectTabUniversal(lang: string, idx: number) {
+    // Önce mevcut tabdaki kodu kaydet
+    if (this.editor && this.activeTab) {
+      const prevTab = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
+      if (prevTab) {
+        prevTab.code = this.editor.getValue();
+      }
+    }
     this.activeTab = { lang, idx };
     this.selectedLanguage = lang;
     this.selectedTabIndexByLanguage[lang] = idx;
     const tab = this.openTabs.find(t => t.lang === lang && t.idx === idx);
     if (this.editor && tab) {
       const model = this.editor.getModel();
-      // Ensure the language is set to 'javascript' explicitly
       if (lang === 'javascript') {
         // @ts-ignore
         window.monaco.editor.setModelLanguage(model, 'javascript');
