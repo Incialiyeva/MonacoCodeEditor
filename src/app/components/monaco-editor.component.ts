@@ -66,52 +66,52 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     {
       name: 'onInit',
       description: 'Sayfa ilk yüklendiğinde tetiklenir.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onInit() {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onInit() {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onReady',
       description: 'Sayfa tamamen hazır olduğunda çalışır.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onReady() {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onReady() {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onSelect',
       description: 'Kullanıcı bir kayıt seçtiğinde tetiklenir.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onSelect(record) {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onSelect(record) {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onEdit',
       description: 'Kullanıcı düzenleme moduna geçtiğinde tetiklenir.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onEdit(data) {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onEdit(data) {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onValidate',
       description: 'Kayıt kaydedilmeden önce çalışır. false dönerse kayıt engellenir.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onValidate() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      code: `function onValidate() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
     },
     {
       name: 'onSave',
       description: 'Kayıt kaydedileceği sırada tetiklenir.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onSave(data) {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onSave(data) {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onClick',
       description: 'Özel bir butona tıklanınca çalışır.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onClick(event) {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onClick(event) {\n  // Kodunuzu buraya yazın\n}`
     },
     {
       name: 'onVisible',
       description: 'Alanın görünürlüğünü kontrol eder.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onVisible() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      code: `function onVisible() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
     },
     {
       name: 'onEnabled',
       description: 'Alanın aktifliğini kontrol eder.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onEnabled() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      code: `function onEnabled() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
     },
     {
       name: 'onCalculate',
       description: 'Hesaplama yapmak için kullanılır.',
-      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onCalculate() {\n  // Kodunuzu buraya yazın\n}`
+      code: `function onCalculate() {\n  // Kodunuzu buraya yazın\n}`
     }
   ];
   selectedScriptIdx = 0;
