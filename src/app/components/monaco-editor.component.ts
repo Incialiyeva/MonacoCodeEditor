@@ -301,7 +301,7 @@ declare function onCalculate(): any;
           // Kod değiştiğinde güncelle
           this.scriptTemplates[this.selectedScriptIdx].code = this.editor.getValue();
         });
-        // Custom autocomplete provider for 'self.', 'this.' and their members
+        // Custom autocomplete provider for context names and their members
         // @ts-ignore
         window.monaco.languages.registerCompletionItemProvider('javascript', {
           triggerCharacters: ['.'],
@@ -312,8 +312,11 @@ declare function onCalculate(): any;
               endLineNumber: position.lineNumber,
               endColumn: position.column
             });
-            // self. veya this.
-            if (/\b(self|this)\.$/.test(textUntilPosition)) {
+            // Desteklenen context isimleri
+            const ctxNames = ['self', 'this', 'context', 'ctx', 'page', 'env'];
+            // contextName. --> context üyeleri
+            const contextRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.$');
+            if (contextRegex.test(textUntilPosition)) {
               return {
                 suggestions: [
                   {
@@ -354,8 +357,9 @@ declare function onCalculate(): any;
                 ]
               };
             }
-            // self.form. veya this.form.
-            if (/\b(self|this)\.form\.$/.test(textUntilPosition)) {
+            // contextName.form. --> form metotları
+            const formRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.form\\.$');
+            if (formRegex.test(textUntilPosition)) {
               return {
                 suggestions: [
                   {
@@ -401,8 +405,9 @@ declare function onCalculate(): any;
                 ]
               };
             }
-            // self.dialog. veya this.dialog.
-            if (/\b(self|this)\.dialog\.$/.test(textUntilPosition)) {
+            // contextName.dialog. --> dialog metotları
+            const dialogRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.dialog\\.$');
+            if (dialogRegex.test(textUntilPosition)) {
               return {
                 suggestions: [
                   {
@@ -432,8 +437,9 @@ declare function onCalculate(): any;
                 ]
               };
             }
-            // self.navigation. veya this.navigation.
-            if (/\b(self|this)\.navigation\.$/.test(textUntilPosition)) {
+            // contextName.navigation. --> navigation metotları
+            const navigationRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.navigation\\.$');
+            if (navigationRegex.test(textUntilPosition)) {
               return {
                 suggestions: [
                   {
