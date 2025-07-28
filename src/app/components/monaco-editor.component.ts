@@ -67,6 +67,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   // Son kaydedilen kodu saklamak için
   lastSavedCodeByTab: Record<string, string> = {};
+  showSaveModal = false;
 
   scriptTemplates = [
     {
@@ -305,7 +306,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       // Aktif tab için kaydedilen kodu sakla
       const tabKey = this.getActiveTabKey();
       this.lastSavedCodeByTab[tabKey] = code;
+      this.showSaveModal = true;
     }
+  }
+
+  closeSaveModal() {
+    this.showSaveModal = false;
   }
 
   // Aktif tab için benzersiz anahtar

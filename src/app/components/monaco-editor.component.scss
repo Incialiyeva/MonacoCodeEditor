@@ -343,6 +343,44 @@
   border: 1.5px solid #4f8cff;
 }
 
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(24, 26, 32, 0.65);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-box {
+  background: #23272e;
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px #0007;
+  padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+  min-width: 320px;
+  max-width: 90vw;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  animation: modal-fade-in 0.18s;
+}
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.7rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+}
+@keyframes modal-fade-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 900px) {
   .editor-toolbar, .tabbar {
     padding-left: 1rem;
