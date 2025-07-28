@@ -6,6 +6,12 @@ import * as prettier from 'prettier/standalone';
 import * as parserBabel from 'prettier/plugins/babel';
 import * as parserEstree from 'prettier/plugins/estree';
 
+// Yeni feature importları
+import { registerMonacoIntellisense } from '../features/intellisense/monaco-intellisense.provider';
+import { formatWithPrettier } from '../features/prettier/prettier-format.util';
+import { showMonacoDiff } from '../features/diff/monaco-diff.util';
+import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
+
 interface EditorTab {
   name: string;
   code: string;
@@ -212,11 +218,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       return;
     }
     if (typeof window.require === 'function') {
-      // @ts-ignore
-      if (!('MonacoEnvironment' in window)) {
-        // @ts-ignore
-        window.MonacoEnvironment = {};
-      }
       window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
       window.MonacoEnvironment = {
         getWorkerUrl: function (workerId: string, label: string) {
@@ -230,67 +231,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
         }
       };
       window.require(['vs/editor/editor.main'], () => {
-        // Monaco context tiplerini ekle
-        // @ts-ignore
-        window.monaco.languages.typescript.javascriptDefaults.addExtraLib(`
-
-/**
- * GLOBAL CONTEXT – Monaco ortamı için zengin API
- * Kod yazarken autocomplete, type checking ve güvenli tanım sağlar.
- */
-
-declare global {
-  interface MonacoContext {
-    record: {
-      id?: string;
-      name?: string;
-      price?: number;
-      quantity?: number;
-      total?: number;
-      [key: string]: any;
-    };
-    isEditMode: boolean;
-    form: {
-      getValue(field: string): any;
-      setValue(field: string, value: any): void;
-      setVisible(field: string, visible: boolean): void;
-      setEnabled(field: string, enabled: boolean): void;
-      showError(field: string, message: string): void;
-    };
-    dialog: {
-      alert(message: string): void;
-      confirm(message: string): Promise<boolean>;
-      open(path: string, params?: Record<string, any>): void;
-    };
-    navigation: {
-      go(path: string, params?: Record<string, any>): void;
-      reload(): void;
-    };
-  }
-  const self: MonacoContext;
-  function showMessage(text: string): void;
-  function log(text: string): void;
-}
-
-declare const self: MonacoContext;
-declare function showMessage(text: string): void;
-declare function log(text: string): void;
-
-declare function onInit(): void;
-declare function onReady(): void;
-declare function onSelect(record: Record<string, any>): void;
-declare function onEdit(data: Record<string, any>): void;
-declare function onValidate(): boolean;
-declare function onSave(data: Record<string, any>): void;
-declare function onClick(event?: any): void;
-declare function onVisible(): boolean;
-declare function onEnabled(): boolean;
-declare function onCalculate(): any;
-
-`, 'filename/monacoContext.d.ts');
-        // İlk script ile başlat
         const tab = this.scriptTemplates[this.selectedScriptIdx];
-        // @ts-ignore
         this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
           value: tab.code,
           language: 'javascript',
@@ -298,172 +239,10 @@ declare function onCalculate(): any;
           automaticLayout: true
         });
         this.editor.onDidChangeModelContent(() => {
-          // Kod değiştiğinde güncelle
           this.scriptTemplates[this.selectedScriptIdx].code = this.editor.getValue();
         });
-        // Custom autocomplete provider for context names and their members
-        // @ts-ignore
-        window.monaco.languages.registerCompletionItemProvider('javascript', {
-          triggerCharacters: ['.'],
-          provideCompletionItems: function(model: any, position: any) {
-            const textUntilPosition = model.getValueInRange({
-              startLineNumber: position.lineNumber,
-              startColumn: 1,
-              endLineNumber: position.lineNumber,
-              endColumn: position.column
-            });
-            // Desteklenen context isimleri
-            const ctxNames = ['self', 'this', 'context', 'ctx', 'page', 'env'];
-            // contextName. --> context üyeleri
-            const contextRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.$');
-            if (contextRegex.test(textUntilPosition)) {
-              return {
-                suggestions: [
-                  {
-                    label: 'form',
-                    kind: window.monaco.languages.CompletionItemKind.Property,
-                    insertText: 'form',
-                    detail: 'Form API',
-                    documentation: 'Form işlemleri için API'
-                  },
-                  {
-                    label: 'dialog',
-                    kind: window.monaco.languages.CompletionItemKind.Property,
-                    insertText: 'dialog',
-                    detail: 'Dialog API',
-                    documentation: 'Uyarı, onay, pencere açma'
-                  },
-                  {
-                    label: 'navigation',
-                    kind: window.monaco.languages.CompletionItemKind.Property,
-                    insertText: 'navigation',
-                    detail: 'Navigation API',
-                    documentation: 'Sayfa geçiş ve yenileme'
-                  },
-                  {
-                    label: 'record',
-                    kind: window.monaco.languages.CompletionItemKind.Property,
-                    insertText: 'record',
-                    detail: 'Aktif form verileri',
-                    documentation: 'Formdaki mevcut kayıt verileri'
-                  },
-                  {
-                    label: 'isEditMode',
-                    kind: window.monaco.languages.CompletionItemKind.Property,
-                    insertText: 'isEditMode',
-                    detail: 'Düzenleme modu',
-                    documentation: 'Sayfa şu an düzenleme modunda mı?'
-                  }
-                ]
-              };
-            }
-            // contextName.form. --> form metotları
-            const formRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.form\\.$');
-            if (formRegex.test(textUntilPosition)) {
-              return {
-                suggestions: [
-                  {
-                    label: 'getValue',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'getValue($1)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Alan değeri al',
-                    documentation: 'form.getValue(field: string): any'
-                  },
-                  {
-                    label: 'setValue',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'setValue($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Alan değeri ata',
-                    documentation: 'form.setValue(field: string, value: any): void'
-                  },
-                  {
-                    label: 'setVisible',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'setVisible($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Alan görünürlüğü',
-                    documentation: 'form.setVisible(field: string, visible: boolean): void'
-                  },
-                  {
-                    label: 'setEnabled',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'setEnabled($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Alan aktifliği',
-                    documentation: 'form.setEnabled(field: string, enabled: boolean): void'
-                  },
-                  {
-                    label: 'showError',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'showError($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Alan hata mesajı',
-                    documentation: 'form.showError(field: string, message: string): void'
-                  }
-                ]
-              };
-            }
-            // contextName.dialog. --> dialog metotları
-            const dialogRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.dialog\\.$');
-            if (dialogRegex.test(textUntilPosition)) {
-              return {
-                suggestions: [
-                  {
-                    label: 'alert',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'alert($1)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Uyarı göster',
-                    documentation: 'dialog.alert(message: string): void'
-                  },
-                  {
-                    label: 'confirm',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'confirm($1)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Onay iste',
-                    documentation: 'dialog.confirm(message: string): Promise<boolean>'
-                  },
-                  {
-                    label: 'open',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'open($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Pencere aç',
-                    documentation: 'dialog.open(path: string, params?: Record<string, any>): void'
-                  }
-                ]
-              };
-            }
-            // contextName.navigation. --> navigation metotları
-            const navigationRegex = new RegExp('\\b(' + ctxNames.join('|') + ')\\.navigation\\.$');
-            if (navigationRegex.test(textUntilPosition)) {
-              return {
-                suggestions: [
-                  {
-                    label: 'go',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'go($1, $2)',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Sayfa geçişi',
-                    documentation: 'navigation.go(path: string, params?: Record<string, any>): void'
-                  },
-                  {
-                    label: 'reload',
-                    kind: window.monaco.languages.CompletionItemKind.Method,
-                    insertText: 'reload()',
-                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    detail: 'Sayfayı yenile',
-                    documentation: 'navigation.reload(): void'
-                  }
-                ]
-              };
-            }
-            return { suggestions: [] };
-          }
-        });
+        // Sadece intellisense provider fonksiyonunu çağır
+        registerMonacoIntellisense(window.monaco);
         console.log('Monaco editor mounted!');
       });
     } else {
@@ -492,19 +271,14 @@ declare function onCalculate(): any;
 
   toggleTheme() {
     this.selectedTheme = this.selectedTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
-    if (this.editor) {
-      // @ts-ignore
-      monaco.editor.setTheme(this.selectedTheme);
-    }
-    // Host elemente class ekle
-    const host = this.hostRef.nativeElement;
-    if (this.selectedTheme === 'vs-dark') {
-      this.renderer.removeClass(host, 'light-theme');
-      this.renderer.addClass(host, 'dark-theme');
-    } else {
-      this.renderer.removeClass(host, 'dark-theme');
-      this.renderer.addClass(host, 'light-theme');
-    }
+    // Sadece feature fonksiyonunu çağır
+    applyMonacoTheme({
+      monaco: window.monaco,
+      editor: this.editor,
+      theme: this.selectedTheme,
+      hostElement: this.hostRef.nativeElement,
+      renderer: this.renderer
+    });
   }
 
   selectTab(idx: number) {
@@ -539,78 +313,14 @@ declare function onCalculate(): any;
       const tabKey = this.getActiveTabKey();
       const original = this.lastSavedCodeByTab[tabKey] || '';
       const modified = this.editor.getValue();
-      // Monaco diff editor aç
-      const diffContainer = document.createElement('div');
-      diffContainer.style.width = '80vw';
-      diffContainer.style.height = '70vh';
-      diffContainer.style.position = 'fixed';
-      diffContainer.style.top = '10vh';
-      diffContainer.style.left = '10vw';
-      diffContainer.style.zIndex = '9999';
-      diffContainer.style.background = '#23272e';
-      diffContainer.style.border = '2px solid #4f8cff';
-      diffContainer.style.borderRadius = '12px';
-      diffContainer.style.boxShadow = '0 8px 32px #0006';
-      diffContainer.id = 'monaco-diff-container';
-      document.body.appendChild(diffContainer);
-      // @ts-ignore
-      window.require(['vs/editor/editor.main'], () => {
-        // @ts-ignore
-        const monaco = window.monaco;
-        const originalModel = monaco.editor.createModel(original, this.selectedLanguage);
-        const modifiedModel = monaco.editor.createModel(modified, this.selectedLanguage);
-        // @ts-ignore
-        const diffEditor = monaco.editor.createDiffEditor(diffContainer, {
-          theme: this.selectedTheme,
-          automaticLayout: true,
-        });
-        diffEditor.setModel({ original: originalModel, modified: modifiedModel });
-        // Kapatma butonu
-        const closeBtn = document.createElement('button');
-        closeBtn.innerText = 'Kapat';
-        closeBtn.style.position = 'absolute';
-        closeBtn.style.top = '12px';
-        closeBtn.style.right = '18px';
-        closeBtn.style.zIndex = '10000';
-        closeBtn.style.background = '#4f8cff';
-        closeBtn.style.color = '#fff';
-        closeBtn.style.border = 'none';
-        closeBtn.style.borderRadius = '6px';
-        closeBtn.style.padding = '0.5rem 1.2rem';
-        closeBtn.style.fontSize = '1rem';
-        closeBtn.style.cursor = 'pointer';
-        closeBtn.onclick = () => {
-          diffEditor.dispose();
-          originalModel.dispose();
-          modifiedModel.dispose();
-          diffContainer.remove();
-        };
-        diffContainer.appendChild(closeBtn);
-        // Kodu Güncelle butonu
-        const applyBtn = document.createElement('button');
-        applyBtn.innerText = 'Kodu Güncelle';
-        applyBtn.style.position = 'absolute';
-        applyBtn.style.top = '12px';
-        applyBtn.style.right = '110px';
-        applyBtn.style.zIndex = '10000';
-        applyBtn.style.background = '#43b77a';
-        applyBtn.style.color = '#fff';
-        applyBtn.style.border = 'none';
-        applyBtn.style.borderRadius = '6px';
-        applyBtn.style.padding = '0.5rem 1.2rem';
-        applyBtn.style.fontSize = '1rem';
-        applyBtn.style.cursor = 'pointer';
-        applyBtn.onclick = () => {
-          const newCode = modifiedModel.getValue();
-          if (this.editor) {
-            this.editor.setValue(newCode);
-          }
-          diffEditor.dispose();
-          originalModel.dispose();
-          modifiedModel.dispose();
-          diffContainer.remove();
-        };
-        diffContainer.appendChild(applyBtn);
+      // Sadece diff fonksiyonunu çağır
+      showMonacoDiff({
+        monaco: window.monaco,
+        editor: this.editor,
+        original,
+        modified,
+        language: 'javascript',
+        theme: this.selectedTheme
       });
     }
   }
@@ -620,13 +330,8 @@ declare function onCalculate(): any;
     if (isPlatformBrowser(this.platformId) && this.editor) {
       try {
         const code = this.editor.getValue();
-        console.log('Prettier input code:', code);
-        const formatted = await prettier.format(code, {
-          parser: 'babel',
-          plugins: [parserBabel, parserEstree],
-          singleQuote: true
-        });
-        console.log('Prettier formatted:', formatted);
+        // Sadece prettier format fonksiyonunu çağır
+        const formatted = await formatWithPrettier(code);
         if (typeof formatted === 'string') {
           const model = this.editor.getModel();
           if (model) {
