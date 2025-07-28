@@ -15,6 +15,7 @@ declare global {
   interface Window {
     require: any;
     monaco: any;
+    MonacoEnvironment?: any;
   }
 }
 
@@ -61,6 +62,60 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   // Son kaydedilen kodu saklamak için
   lastSavedCodeByTab: Record<string, string> = {};
 
+  scriptTemplates = [
+    {
+      name: 'onInit',
+      description: 'Sayfa ilk yüklendiğinde tetiklenir.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onInit() {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onReady',
+      description: 'Sayfa tamamen hazır olduğunda çalışır.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onReady() {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onSelect',
+      description: 'Kullanıcı bir kayıt seçtiğinde tetiklenir.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onSelect(record) {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onEdit',
+      description: 'Kullanıcı düzenleme moduna geçtiğinde tetiklenir.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onEdit(data) {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onValidate',
+      description: 'Kayıt kaydedilmeden önce çalışır. false dönerse kayıt engellenir.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onValidate() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+    },
+    {
+      name: 'onSave',
+      description: 'Kayıt kaydedileceği sırada tetiklenir.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onSave(data) {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onClick',
+      description: 'Özel bir butona tıklanınca çalışır.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onClick(event) {\n  // Kodunuzu buraya yazın\n}`
+    },
+    {
+      name: 'onVisible',
+      description: 'Alanın görünürlüğünü kontrol eder.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onVisible() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+    },
+    {
+      name: 'onEnabled',
+      description: 'Alanın aktifliğini kontrol eder.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onEnabled() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+    },
+    {
+      name: 'onCalculate',
+      description: 'Hesaplama yapmak için kullanılır.',
+      code: `/** @type {MonacoContext} */\nconst self = this;\nfunction onCalculate() {\n  // Kodunuzu buraya yazın\n}`
+    }
+  ];
+  selectedScriptIdx = 0;
+
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
     @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null,
@@ -76,24 +131,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   ngOnInit() {
     if (isPlatformBrowser(this.platformId)) {
-      const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
-      this.languages = [
-        {
-          value: 'javascript',
-          label: 'JavaScript',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#F7DF1E"/><text x="7" y="23" font-size="16" font-family="monospace" fill="#222">JS</text></svg>`)
-        },
-        {
-          value: 'html',
-          label: 'HTML',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E44D26"/><text x="5" y="23" font-size="16" font-family="monospace" fill="#fff">&lt;&gt;</text></svg>`)
-        },
-        {
-          value: 'sql',
-          label: 'SQL',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#336791"/><ellipse cx="16" cy="16" rx="10" ry="6" fill="#fff"/><text x="8" y="21" font-size="14" font-family="monospace" fill="#336791">SQL</text></svg>`)
-        }
-      ];
+      // Artık dil listesi yok, script seçimi var
     }
   }
 
@@ -160,10 +198,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   addTab() {
     const lang = this.selectedLanguage;
     const idx = this.tabsByLanguage[lang].length;
-    this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: '' });
+    // Yeni sekme açılırken başa context tipi ekle
+    const contextHeader = '/** @type {MonacoContext} */\nconst self = this;\n';
+    this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: contextHeader });
     this.selectedTabIndexByLanguage[lang] = idx;
     if (this.editor) {
-      this.editor.setValue('');
+      this.editor.setValue(contextHeader);
     }
   }
 
@@ -172,14 +212,15 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       return;
     }
     if (typeof window.require === 'function') {
-      // Update the path to match the correct asset directory
       // @ts-ignore
+      if (!('MonacoEnvironment' in window)) {
+        // @ts-ignore
+        window.MonacoEnvironment = {};
+      }
       window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-      // Set the Monaco environment to specify the base URL for workers
-      // @ts-ignore
       window.MonacoEnvironment = {
         getWorkerUrl: function (workerId: string, label: string) {
-          const baseUrl = window.location.origin + '/assets/monaco'; // Adjusted to remove duplicate 'vs'
+          const baseUrl = window.location.origin + '/assets/monaco';
           return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
             self.MonacoEnvironment = {
               baseUrl: '${baseUrl}'
@@ -188,9 +229,67 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
           `)}`;
         }
       };
-      // @ts-ignore
       window.require(['vs/editor/editor.main'], () => {
-        const tab = this.openTabs.find(t => t.lang === 'javascript') || this.openTabs[0];
+        // Monaco context tiplerini ekle
+        // @ts-ignore
+        window.monaco.languages.typescript.javascriptDefaults.addExtraLib(`
+
+/**
+ * GLOBAL CONTEXT – Monaco ortamı için zengin API
+ * Kod yazarken autocomplete, type checking ve güvenli tanım sağlar.
+ */
+
+declare global {
+  interface MonacoContext {
+    record: {
+      id?: string;
+      name?: string;
+      price?: number;
+      quantity?: number;
+      total?: number;
+      [key: string]: any;
+    };
+    isEditMode: boolean;
+    form: {
+      getValue(field: string): any;
+      setValue(field: string, value: any): void;
+      setVisible(field: string, visible: boolean): void;
+      setEnabled(field: string, enabled: boolean): void;
+      showError(field: string, message: string): void;
+    };
+    dialog: {
+      alert(message: string): void;
+      confirm(message: string): Promise<boolean>;
+      open(path: string, params?: Record<string, any>): void;
+    };
+    navigation: {
+      go(path: string, params?: Record<string, any>): void;
+      reload(): void;
+    };
+  }
+  const self: MonacoContext;
+  function showMessage(text: string): void;
+  function log(text: string): void;
+}
+
+declare const self: MonacoContext;
+declare function showMessage(text: string): void;
+declare function log(text: string): void;
+
+declare function onInit(): void;
+declare function onReady(): void;
+declare function onSelect(record: Record<string, any>): void;
+declare function onEdit(data: Record<string, any>): void;
+declare function onValidate(): boolean;
+declare function onSave(data: Record<string, any>): void;
+declare function onClick(event?: any): void;
+declare function onVisible(): boolean;
+declare function onEnabled(): boolean;
+declare function onCalculate(): any;
+
+`, 'filename/monacoContext.d.ts');
+        // İlk script ile başlat
+        const tab = this.scriptTemplates[this.selectedScriptIdx];
         // @ts-ignore
         this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
           value: tab.code,
@@ -199,8 +298,165 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
           automaticLayout: true
         });
         this.editor.onDidChangeModelContent(() => {
-          const active = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
-          if (active) active.code = this.editor.getValue();
+          // Kod değiştiğinde güncelle
+          this.scriptTemplates[this.selectedScriptIdx].code = this.editor.getValue();
+        });
+        // Custom autocomplete provider for 'self.', 'this.' and their members
+        // @ts-ignore
+        window.monaco.languages.registerCompletionItemProvider('javascript', {
+          triggerCharacters: ['.'],
+          provideCompletionItems: function(model: any, position: any) {
+            const textUntilPosition = model.getValueInRange({
+              startLineNumber: position.lineNumber,
+              startColumn: 1,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column
+            });
+            // self. veya this.
+            if (/\b(self|this)\.$/.test(textUntilPosition)) {
+              return {
+                suggestions: [
+                  {
+                    label: 'form',
+                    kind: window.monaco.languages.CompletionItemKind.Property,
+                    insertText: 'form',
+                    detail: 'Form API',
+                    documentation: 'Form işlemleri için API'
+                  },
+                  {
+                    label: 'dialog',
+                    kind: window.monaco.languages.CompletionItemKind.Property,
+                    insertText: 'dialog',
+                    detail: 'Dialog API',
+                    documentation: 'Uyarı, onay, pencere açma'
+                  },
+                  {
+                    label: 'navigation',
+                    kind: window.monaco.languages.CompletionItemKind.Property,
+                    insertText: 'navigation',
+                    detail: 'Navigation API',
+                    documentation: 'Sayfa geçiş ve yenileme'
+                  },
+                  {
+                    label: 'record',
+                    kind: window.monaco.languages.CompletionItemKind.Property,
+                    insertText: 'record',
+                    detail: 'Aktif form verileri',
+                    documentation: 'Formdaki mevcut kayıt verileri'
+                  },
+                  {
+                    label: 'isEditMode',
+                    kind: window.monaco.languages.CompletionItemKind.Property,
+                    insertText: 'isEditMode',
+                    detail: 'Düzenleme modu',
+                    documentation: 'Sayfa şu an düzenleme modunda mı?'
+                  }
+                ]
+              };
+            }
+            // self.form. veya this.form.
+            if (/\b(self|this)\.form\.$/.test(textUntilPosition)) {
+              return {
+                suggestions: [
+                  {
+                    label: 'getValue',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'getValue($1)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Alan değeri al',
+                    documentation: 'form.getValue(field: string): any'
+                  },
+                  {
+                    label: 'setValue',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'setValue($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Alan değeri ata',
+                    documentation: 'form.setValue(field: string, value: any): void'
+                  },
+                  {
+                    label: 'setVisible',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'setVisible($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Alan görünürlüğü',
+                    documentation: 'form.setVisible(field: string, visible: boolean): void'
+                  },
+                  {
+                    label: 'setEnabled',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'setEnabled($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Alan aktifliği',
+                    documentation: 'form.setEnabled(field: string, enabled: boolean): void'
+                  },
+                  {
+                    label: 'showError',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'showError($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Alan hata mesajı',
+                    documentation: 'form.showError(field: string, message: string): void'
+                  }
+                ]
+              };
+            }
+            // self.dialog. veya this.dialog.
+            if (/\b(self|this)\.dialog\.$/.test(textUntilPosition)) {
+              return {
+                suggestions: [
+                  {
+                    label: 'alert',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'alert($1)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Uyarı göster',
+                    documentation: 'dialog.alert(message: string): void'
+                  },
+                  {
+                    label: 'confirm',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'confirm($1)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Onay iste',
+                    documentation: 'dialog.confirm(message: string): Promise<boolean>'
+                  },
+                  {
+                    label: 'open',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'open($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Pencere aç',
+                    documentation: 'dialog.open(path: string, params?: Record<string, any>): void'
+                  }
+                ]
+              };
+            }
+            // self.navigation. veya this.navigation.
+            if (/\b(self|this)\.navigation\.$/.test(textUntilPosition)) {
+              return {
+                suggestions: [
+                  {
+                    label: 'go',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'go($1, $2)',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Sayfa geçişi',
+                    documentation: 'navigation.go(path: string, params?: Record<string, any>): void'
+                  },
+                  {
+                    label: 'reload',
+                    kind: window.monaco.languages.CompletionItemKind.Method,
+                    insertText: 'reload()',
+                    insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    detail: 'Sayfayı yenile',
+                    documentation: 'navigation.reload(): void'
+                  }
+                ]
+              };
+            }
+            return { suggestions: [] };
+          }
         });
         console.log('Monaco editor mounted!');
       });
@@ -381,6 +637,13 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
         alert('Prettier formatlama hatası: ' + (e?.message || JSON.stringify(e)));
         console.error('Prettier formatlama hatası:', e);
       }
+    }
+  }
+
+  onScriptChange(idx: number) {
+    this.selectedScriptIdx = idx;
+    if (this.editor) {
+      this.editor.setValue(this.scriptTemplates[idx].code);
     }
   }
 } 

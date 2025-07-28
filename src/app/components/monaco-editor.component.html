@@ -1,14 +1,13 @@
 <div class="editor-toolbar">
   <div class="dropdown-group" (clickOutside)="dropdownOpen = false">
     <button class="dropdown-btn premium" (click)="dropdownOpen = !dropdownOpen" [attr.aria-expanded]="dropdownOpen">
-      <span class="lang-icon" [innerHTML]="getLanguageIcon(selectedLanguage)"></span>
-      {{ selectedLanguageLabel }}
+      <span style="font-weight:bold;">{{ scriptTemplates[selectedScriptIdx].name }}</span>
       <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;transition:transform 0.2s;" [style.transform]="dropdownOpen ? 'rotate(180deg)' : ''"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
     </button>
     <div class="dropdown-menu premium" *ngIf="dropdownOpen">
-      <button *ngFor="let lang of languages" class="dropdown-item" [class.selected]="lang.value === selectedLanguage" (click)="selectedLanguage = lang.value; onLanguageChange($event); dropdownOpen = false">
-        <span class="lang-icon" [innerHTML]="getLanguageIcon(lang.value)"></span>
-        {{ lang.label }}
+      <button *ngFor="let script of scriptTemplates; let i = index" class="dropdown-item" [class.selected]="i === selectedScriptIdx" (click)="onScriptChange(i); dropdownOpen = false">
+        <span style="font-weight:bold;">{{ script.name }}</span>
+        <div style="font-size:0.9em;color:#bfc7d5;">{{ script.description }}</div>
       </button>
     </div>
   </div>
