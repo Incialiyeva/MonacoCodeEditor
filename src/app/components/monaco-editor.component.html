@@ -68,7 +68,18 @@
         </div>
       </div>
       <div class="github-modal-code-preview">
-        <textarea class="tab-code-preview" readonly rows="14" *ngIf="openTabs[activeTabForSave]">{{ openTabs[activeTabForSave].code }}</textarea>
+        <div class="tab-code-preview">
+          <div class="diff-view">
+            <div class="diff-left">
+              <div class="diff-header">Original</div>
+              <div class="diff-content" *ngIf="openTabs[activeTabForSave]" [innerHTML]="getActiveTabDiffHTML().left"></div>
+            </div>
+            <div class="diff-right">
+              <div class="diff-header">Modified</div>
+              <div class="diff-content" *ngIf="openTabs[activeTabForSave]" [innerHTML]="getActiveTabDiffHTML().right"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-actions">

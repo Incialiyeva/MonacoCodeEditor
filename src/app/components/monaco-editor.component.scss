@@ -472,77 +472,83 @@
 }
 
 .github-style-modal {
-  min-width: 700px;
-  max-width: 98vw;
-  padding: 2.2rem 2.5rem 1.5rem 2.5rem;
-  background: var(--dropdown-bg, #23272e);
-  border: 1.5px solid var(--dropdown-border, #353945);
-  box-shadow: 0 8px 32px #0007;
+  min-width: 650px;
+  max-width: 85vw;
+  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  background: #1a1d24;
+  border: 1px solid #4f8cff22;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 .github-modal-content {
   display: flex;
   flex-direction: row;
-  gap: 2.2rem;
-  min-height: 340px;
+  gap: 2rem;
+  min-height: 320px;
   margin-bottom: 1.2rem;
 }
 .github-modal-tabs {
   min-width: 220px;
   max-width: 260px;
-  background: var(--tabbar-bg, #20232a);
+  background: #20232a;
   border-radius: 10px;
-  box-shadow: 0 2px 8px #0002;
-  padding: 0.7rem 0.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0.8rem 0.4rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
   overflow-y: auto;
-  height: 340px;
-  border: 1px solid var(--tabbar-border, #23272e);
+  height: 320px;
+  border: 1px solid #353945;
 }
 .github-modal-tab-item {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.65rem 1.1rem;
+  padding: 0.7rem 1rem;
   border-radius: 7px;
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 500;
-  color: var(--tab-color, #bfc7d5);
+  color: #bfc7d5;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  border: 1.5px solid transparent;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
   position: relative;
-  background: var(--tab-bg, #23272e);
+  background: #2a2f38;
 }
 .github-modal-tab-item.selected {
-  background: var(--tab-active-bg, #181a20);
-  color: #4f8cff;
+  background: #3fb95011;
+  color: #3fb950;
+  border: 1px solid #3fb95022;
 }
 .github-modal-tab-item.active {
-  background: #4f8cff22;
-  color: #4f8cff;
-  border: 1.5px solid #4f8cff;
+  background: #3fb950;
+  color: #ffffff;
+  border: 1px solid #3fb950;
   z-index: 2;
 }
 .github-modal-tab-item:hover {
   background: #353945;
-  color: #fff;
+  color: #ffffff;
+}
+.github-modal-tab-item.active:hover {
+  background: #3fb950;
+  color: #ffffff;
 }
 .github-modal-tab-item input[type="checkbox"] {
   appearance: none;
   width: 1.1em;
   height: 1.1em;
-  border: 2px solid #4f8cff;
+  border: 2px solid #3fb950;
   border-radius: 50%;
   background: transparent;
   position: relative;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 .github-modal-tab-item input[type="checkbox"]:checked {
-  background: #4f8cff;
-  border-color: #4f8cff;
+  background: #3fb950;
+  border-color: #3fb950;
 }
 .github-modal-tab-item input[type="checkbox"]:checked::after {
   content: '✓';
@@ -559,28 +565,152 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  max-width: 320px;
 }
 .github-modal-code-preview .tab-code-preview {
   width: 100%;
   min-width: 0;
-  background: #181a20;
+  background: #0f1419;
   color: #e6e6e6;
-  border: 1.5px solid #23272e;
+  border: 1px solid #3fb95022;
   border-radius: 8px;
-  font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
-  font-size: 1.08em;
-  padding: 1.1em 1.2em;
+  font-family: 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.85em;
+  padding: 0.8em 1em;
   resize: none;
-  box-shadow: 0 1px 4px #0001;
-  min-height: 320px;
-  max-height: 340px;
-  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-height: 250px;
+  max-height: 280px;
+  line-height: 1.3;
   letter-spacing: 0.01em;
+  position: relative;
+  overflow: hidden;
+}
+.github-modal-code-preview .tab-code-preview::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.02) 0%, 
+    rgba(255, 255, 255, 0.02) 49%, 
+    rgba(63, 185, 80, 0.05) 50%, 
+    rgba(63, 185, 80, 0.05) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.github-modal-code-preview .tab-code-preview::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, 
+    transparent 0%, 
+    rgba(63, 185, 80, 0.3) 50%, 
+    transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+.github-modal-code-preview .tab-code-preview textarea {
+  position: relative;
+  z-index: 3;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: inherit;
+  resize: none;
+  width: 100%;
+  height: 100%;
+  outline: none;
 }
 .github-modal-code-preview .tab-code-preview:focus {
   outline: none;
-  border-color: #4f8cff;
-  box-shadow: 0 4px 16px #0006, 0 0 0 2px #4f8cff22;
+  border-color: #3fb950;
+  box-shadow: 0 4px 16px #0006, 0 0 0 2px #3fb95022;
+}
+.modal-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: #3fb950;
+}
+.choose-all-row {
+  margin-bottom: 1.2rem;
+  text-align: left;
+  padding: 0.8rem 1rem;
+  background: #2a2f38;
+  border-radius: 8px;
+  border: 1px solid #353945;
+}
+.choose-all-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 500;
+  color: #e6e6e6;
+  font-size: 1rem;
+}
+.choose-all-row input[type="checkbox"] {
+  appearance: none;
+  width: 1.2em;
+  height: 1.2em;
+  border: 2px solid #3fb950;
+  border-radius: 50%;
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.choose-all-row input[type="checkbox"]:checked {
+  background: #3fb950;
+  border-color: #3fb950;
+}
+.choose-all-row input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+.modal-actions .toolbar-btn {
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid #353945;
+  background: #2a2f38;
+  color: #e6e6e6;
+  transition: all 0.15s ease;
+}
+.modal-actions .toolbar-btn:hover {
+  background: #353945;
+  border-color: #3fb950;
+  color: #ffffff;
+}
+.modal-actions .save-btn {
+  background: #3fb950;
+  color: #ffffff;
+  border-color: #3fb950;
+}
+.modal-actions .save-btn:hover {
+  background: #2ea043;
+  border-color: #2ea043;
+  color: #ffffff;
 }
 @media (max-width: 900px) {
   .editor-toolbar, .tabbar {
@@ -631,4 +761,140 @@
     min-width: 0;
     justify-content: flex-start;
   }
+} 
+
+.diff-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: #0d1117;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #30363d;
+}
+.diff-left, .diff-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.diff-left {
+  background: #0d1117;
+  border-right: 1px solid #30363d;
+}
+.diff-right {
+  background: #0d1117;
+}
+.diff-header {
+  padding: 0.6rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b949e;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+.diff-left .diff-header {
+  background: #161b22;
+  color: #8b949e;
+}
+.diff-right .diff-header {
+  background: #0d4a1a;
+  color: #3fb950;
+}
+.diff-left textarea, .diff-right textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #c9d1d9;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.85em;
+  padding: 0.8em 1em;
+  resize: none;
+  outline: none;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: pre;
+}
+.diff-left textarea {
+  color: #8b949e;
+  background: #0d1117;
+}
+.diff-right textarea {
+  color: #c9d1d9;
+  background: #0d1117;
+}
+
+/* Diff satır renkleri */
+.diff-left textarea {
+  color: #8b949e;
+  background: #0d1117;
+}
+.diff-right textarea {
+  color: #c9d1d9;
+  background: #0d1117;
+}
+
+/* Diff content için yeni stiller */
+.diff-content {
+  flex: 1;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.85em;
+  padding: 0.8em 1em;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: pre;
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+.diff-line {
+  display: block;
+  padding: 0.1em 0;
+  border-radius: 2px;
+  margin: 0.1em 0;
+}
+
+.diff-line.unchanged {
+  color: #8b949e;
+  background: transparent;
+}
+
+.diff-line.deleted {
+  color: #f85149;
+  background: #67060c;
+  border-left: 3px solid #f85149;
+  padding-left: 0.5em;
+}
+
+.diff-line.added {
+  color: #3fb950;
+  background: #0d4a1a;
+  border-left: 3px solid #3fb950;
+  padding-left: 0.5em;
+}
+
+.diff-line.empty {
+  background: transparent;
+  height: 1.4em;
+}
+
+/* Silinen satırlar için kırmızı arka plan */
+.diff-left textarea {
+  background: #0d1117;
+}
+.diff-left textarea:contains("-") {
+  background: #67060c;
+}
+
+/* Eklenen satırlar için yeşil arka plan */
+.diff-right textarea {
+  background: #0d1117;
+}
+.diff-right textarea:contains("+") {
+  background: #0d4a1a;
 } 

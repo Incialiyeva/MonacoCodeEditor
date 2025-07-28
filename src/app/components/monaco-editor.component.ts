@@ -72,6 +72,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   chooseAllForSave = true;
   activeTabForSave: number = 0;
 
+  // Diff için orijinal kodları sakla
+  originalCodeByTab: Record<string, string> = {};
+
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
     this.chooseAllForSave = true;
@@ -230,6 +233,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       const prevTab = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
       if (prevTab) {
         prevTab.code = this.editor.getValue();
+        // Orijinal kodu sakla
+        const tabKey = this.getTabKey(prevTab);
+        this.saveOriginalCode(tabKey, prevTab.code);
       }
     }
     this.activeTab = { lang, idx };
@@ -370,6 +376,124 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     return `${this.activeTab.lang}_${this.activeTab.idx}`;
   }
 
+  // Tab için orijinal kodu sakla
+  saveOriginalCode(tabKey: string, code: string) {
+    if (!this.originalCodeByTab[tabKey]) {
+      this.originalCodeByTab[tabKey] = code;
+    }
+  }
+
+  // Tab için benzersiz anahtar
+  getTabKey(tab: any): string {
+    return `${tab.lang}_${tab.idx}`;
+  }
+
+  // Diff oluştur
+  generateDiff(original: string, modified: string): { left: string, right: string } {
+    const originalLines = original.split('\n');
+    const modifiedLines = modified.split('\n');
+    
+    let leftLines: string[] = [];
+    let rightLines: string[] = [];
+    
+    // Basit diff algoritması
+    let i = 0, j = 0;
+    while (i < originalLines.length || j < modifiedLines.length) {
+      if (i < originalLines.length && j < modifiedLines.length && originalLines[i] === modifiedLines[j]) {
+        // Aynı satır
+        leftLines.push(` ${originalLines[i]}`);
+        rightLines.push(` ${modifiedLines[j]}`);
+        i++; j++;
+      } else if (j < modifiedLines.length && (i >= originalLines.length || originalLines[i] !== modifiedLines[j])) {
+        // Yeni satır eklendi
+        if (i < originalLines.length) {
+          leftLines.push(`-${originalLines[i]}`);
+          rightLines.push(`+${modifiedLines[j]}`);
+          i++; j++;
+        } else {
+          leftLines.push('');
+          rightLines.push(`+${modifiedLines[j]}`);
+          j++;
+        }
+      } else if (i < originalLines.length) {
+        // Satır silindi
+        leftLines.push(`-${originalLines[i]}`);
+        rightLines.push('');
+        i++;
+      }
+    }
+    
+    return {
+      left: leftLines.join('\n'),
+      right: rightLines.join('\n')
+    };
+  }
+
+  // HTML formatında diff oluştur
+  generateDiffHTML(original: string, modified: string): { left: string, right: string } {
+    const originalLines = original.split('\n');
+    const modifiedLines = modified.split('\n');
+    
+    let leftHTML: string[] = [];
+    let rightHTML: string[] = [];
+    
+    // Basit diff algoritması
+    let i = 0, j = 0;
+    while (i < originalLines.length || j < modifiedLines.length) {
+      if (i < originalLines.length && j < modifiedLines.length && originalLines[i] === modifiedLines[j]) {
+        // Aynı satır
+        leftHTML.push(`<span class="diff-line unchanged"> ${originalLines[i]}</span>`);
+        rightHTML.push(`<span class="diff-line unchanged"> ${modifiedLines[j]}</span>`);
+        i++; j++;
+      } else if (j < modifiedLines.length && (i >= originalLines.length || originalLines[i] !== modifiedLines[j])) {
+        // Yeni satır eklendi
+        if (i < originalLines.length) {
+          leftHTML.push(`<span class="diff-line deleted">-${originalLines[i]}</span>`);
+          rightHTML.push(`<span class="diff-line added">+${modifiedLines[j]}</span>`);
+          i++; j++;
+        } else {
+          leftHTML.push(`<span class="diff-line empty"></span>`);
+          rightHTML.push(`<span class="diff-line added">+${modifiedLines[j]}</span>`);
+          j++;
+        }
+      } else if (i < originalLines.length) {
+        // Satır silindi
+        leftHTML.push(`<span class="diff-line deleted">-${originalLines[i]}</span>`);
+        rightHTML.push(`<span class="diff-line empty"></span>`);
+        i++;
+      }
+    }
+    
+    return {
+      left: leftHTML.join('\n'),
+      right: rightHTML.join('\n')
+    };
+  }
+
+  // Aktif tab için diff al
+  getActiveTabDiff(): { left: string, right: string } {
+    if (this.activeTabForSave >= 0 && this.activeTabForSave < this.openTabs.length) {
+      const tab = this.openTabs[this.activeTabForSave];
+      const tabKey = this.getTabKey(tab);
+      const original = this.originalCodeByTab[tabKey] || tab.code;
+      const modified = tab.code;
+      return this.generateDiff(original, modified);
+    }
+    return { left: '', right: '' };
+  }
+
+  // Aktif tab için HTML diff al
+  getActiveTabDiffHTML(): { left: string, right: string } {
+    if (this.activeTabForSave >= 0 && this.activeTabForSave < this.openTabs.length) {
+      const tab = this.openTabs[this.activeTabForSave];
+      const tabKey = this.getTabKey(tab);
+      const original = this.originalCodeByTab[tabKey] || tab.code;
+      const modified = tab.code;
+      return this.generateDiffHTML(original, modified);
+    }
+    return { left: '', right: '' };
+  }
+
   // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
   showDiff() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
@@ -420,14 +544,22 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     const sameTabs = this.openTabs.filter(t => t.name.startsWith(script.name));
     const tabNumber = sameTabs.length + 1;
     const tabName = `${script.name} ${tabNumber}`;
-    this.openTabs.push({
+    
+    const newTab = {
       lang: 'javascript',
       idx: this.openTabs.length, // benzersiz index
       name: tabName,
       code: script.code,
       language: 'javascript'
-    });
+    };
+    
+    this.openTabs.push(newTab);
     this.activeTab = { lang: 'javascript', idx: this.openTabs.length - 1 };
+    
+    // Orijinal kodu sakla
+    const tabKey = this.getTabKey(newTab);
+    this.saveOriginalCode(tabKey, script.code);
+    
     if (this.editor) {
       this.editor.setValue(script.code);
     }
