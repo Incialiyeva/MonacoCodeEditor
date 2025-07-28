@@ -48,10 +48,32 @@
   <div #editorContainer class="editor-container" style="width:100%;height:400px;"></div>
 </div> 
 <div *ngIf="showSaveModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-title">Code Saved!</div>
+  <div class="modal-box save-modal-box github-style-modal">
+    <div class="modal-title">Select files to save</div>
+    <div class="choose-all-row">
+      <label>
+        <input type="checkbox" [(ngModel)]="chooseAllForSave" (change)="toggleChooseAllForSave()" />
+        <span style="margin-left:0.5em;font-weight:500;">Choose All</span>
+      </label>
+    </div>
+    <div class="github-modal-content">
+      <div class="github-modal-tabs">
+        <div *ngFor="let tab of openTabs; let i = index"
+             class="github-modal-tab-item"
+             [class.active]="activeTabForSave === i"
+             [class.selected]="selectedTabsForSave.includes(i)"
+             (click)="setActiveTabForSave(i)">
+          <input type="checkbox" [checked]="selectedTabsForSave.includes(i)" (click)="$event.stopPropagation(); toggleTabForSave(i)" />
+          <span class="tab-name">{{ tab.name }}</span>
+        </div>
+      </div>
+      <div class="github-modal-code-preview">
+        <textarea class="tab-code-preview" readonly rows="14" *ngIf="openTabs[activeTabForSave]">{{ openTabs[activeTabForSave].code }}</textarea>
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="toolbar-btn modern-btn" (click)="closeSaveModal()">OK</button>
+      <button class="toolbar-btn modern-btn save-btn" (click)="saveSelectedTabs()">Save</button>
+      <button class="toolbar-btn modern-btn" (click)="cancelSaveModal()">Cancel</button>
     </div>
   </div>
 </div> 

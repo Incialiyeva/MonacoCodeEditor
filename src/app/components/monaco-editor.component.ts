@@ -68,6 +68,59 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   // Son kaydedilen kodu saklamak için
   lastSavedCodeByTab: Record<string, string> = {};
   showSaveModal = false;
+  selectedTabsForSave: number[] = [];
+  chooseAllForSave = true;
+  activeTabForSave: number = 0;
+
+  openSaveModal() {
+    this.selectedTabsForSave = this.openTabs.map((_, i) => i);
+    this.chooseAllForSave = true;
+    this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    this.showSaveModal = true;
+  }
+
+  toggleChooseAllForSave() {
+    if (this.chooseAllForSave) {
+      this.selectedTabsForSave = this.openTabs.map((_, i) => i);
+    } else {
+      this.selectedTabsForSave = [];
+    }
+    // Aktif sekme seçili değilse, ilk seçiliyi aktif yap
+    if (!this.selectedTabsForSave.includes(this.activeTabForSave)) {
+      this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    }
+  }
+
+  toggleTabForSave(idx: number) {
+    if (this.selectedTabsForSave.includes(idx)) {
+      this.selectedTabsForSave = this.selectedTabsForSave.filter(i => i !== idx);
+    } else {
+      this.selectedTabsForSave = [...this.selectedTabsForSave, idx];
+    }
+    this.chooseAllForSave = this.selectedTabsForSave.length === this.openTabs.length;
+    // Aktif sekme seçili değilse, ilk seçiliyi aktif yap
+    if (!this.selectedTabsForSave.includes(this.activeTabForSave)) {
+      this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    }
+  }
+
+  setActiveTabForSave(idx: number) {
+    this.activeTabForSave = idx;
+  }
+
+  saveSelectedTabs() {
+    // Sadece seçili sekmelerin kodunu kaydet (örnek: console.log)
+    const selectedTabs = this.openTabs.filter((_, i) => this.selectedTabsForSave.includes(i));
+    selectedTabs.forEach(tab => {
+      console.log('Saved tab:', tab.name, tab.code);
+      // Burada gerçek kaydetme işlemi yapılabilir
+    });
+    this.showSaveModal = false;
+  }
+
+  cancelSaveModal() {
+    this.showSaveModal = false;
+  }
 
   scriptTemplates = [
     {
@@ -301,12 +354,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   saveCode() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       const code = this.editor.getValue();
-      // Burada kodu kaydetme işlemi yapılabilir, örnek olarak console.log
-      console.log('Saved code:', code);
       // Aktif tab için kaydedilen kodu sakla
       const tabKey = this.getActiveTabKey();
       this.lastSavedCodeByTab[tabKey] = code;
-      this.showSaveModal = true;
+      this.openSaveModal();
     }
   }
 

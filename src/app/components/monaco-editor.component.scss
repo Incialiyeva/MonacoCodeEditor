@@ -370,6 +370,7 @@
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 0.7rem;
+  color: var(--dropdown-color, #e6e6e6);
 }
 .modal-actions {
   display: flex;
@@ -381,6 +382,206 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+.save-modal-box {
+  min-width: 420px;
+  max-width: 98vw;
+  padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+}
+.choose-all-row {
+  margin-bottom: 1.1rem;
+  text-align: left;
+  padding: 0.7rem 1rem;
+  background: var(--dropdown-bg, #23272e);
+  border-radius: 8px;
+  border: 1px solid var(--dropdown-border, #353945);
+}
+.choose-all-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-weight: 500;
+  color: var(--dropdown-color, #e6e6e6);
+}
+.choose-all-row input[type="checkbox"] {
+  appearance: none;
+  width: 1.2em;
+  height: 1.2em;
+  border: 2px solid #4f8cff;
+  border-radius: 50%;
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.choose-all-row input[type="checkbox"]:checked {
+  background: #4f8cff;
+  border-color: #4f8cff;
+}
+.choose-all-row input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+.tab-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.tab-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+  background: #23272e;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #0002;
+  padding: 1rem 1.2rem;
+}
+.tab-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 120px;
+  font-size: 1.08rem;
+  font-weight: 500;
+}
+.tab-name {
+  font-weight: 600;
+  color: #4f8cff;
+}
+.tab-code-preview {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: #181a20;
+  color: #e6e6e6;
+  border: 1.5px solid #353945;
+  border-radius: 8px;
+  font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 1.01em;
+  padding: 0.7em 1em;
+  resize: none;
+  box-shadow: 0 1px 4px #0001;
+}
+
+.github-style-modal {
+  min-width: 700px;
+  max-width: 98vw;
+  padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+  background: var(--dropdown-bg, #23272e);
+  border: 1.5px solid var(--dropdown-border, #353945);
+  box-shadow: 0 8px 32px #0007;
+}
+.github-modal-content {
+  display: flex;
+  flex-direction: row;
+  gap: 2.2rem;
+  min-height: 340px;
+  margin-bottom: 1.2rem;
+}
+.github-modal-tabs {
+  min-width: 220px;
+  max-width: 260px;
+  background: var(--tabbar-bg, #20232a);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #0002;
+  padding: 0.7rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  overflow-y: auto;
+  height: 340px;
+  border: 1px solid var(--tabbar-border, #23272e);
+}
+.github-modal-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 7px;
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: var(--tab-color, #bfc7d5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border: 1.5px solid transparent;
+  position: relative;
+  background: var(--tab-bg, #23272e);
+}
+.github-modal-tab-item.selected {
+  background: var(--tab-active-bg, #181a20);
+  color: #4f8cff;
+}
+.github-modal-tab-item.active {
+  background: #4f8cff22;
+  color: #4f8cff;
+  border: 1.5px solid #4f8cff;
+  z-index: 2;
+}
+.github-modal-tab-item:hover {
+  background: #353945;
+  color: #fff;
+}
+.github-modal-tab-item input[type="checkbox"] {
+  appearance: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 2px solid #4f8cff;
+  border-radius: 50%;
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.github-modal-tab-item input[type="checkbox"]:checked {
+  background: #4f8cff;
+  border-color: #4f8cff;
+}
+.github-modal-tab-item input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+.github-modal-code-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.github-modal-code-preview .tab-code-preview {
+  width: 100%;
+  min-width: 0;
+  background: #181a20;
+  color: #e6e6e6;
+  border: 1.5px solid #23272e;
+  border-radius: 8px;
+  font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 1.08em;
+  padding: 1.1em 1.2em;
+  resize: none;
+  box-shadow: 0 1px 4px #0001;
+  min-height: 320px;
+  max-height: 340px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+.github-modal-code-preview .tab-code-preview:focus {
+  outline: none;
+  border-color: #4f8cff;
+  box-shadow: 0 4px 16px #0006, 0 0 0 2px #4f8cff22;
+}
 @media (max-width: 900px) {
   .editor-toolbar, .tabbar {
     padding-left: 1rem;
@@ -388,6 +589,26 @@
   }
   .tabbar {
     padding-left: 1rem;
+  }
+  .github-style-modal {
+    min-width: 98vw;
+    padding: 1.2rem 0.5rem 1rem 0.5rem;
+  }
+  .github-modal-content {
+    flex-direction: column;
+    gap: 1.2rem;
+    min-height: 0;
+  }
+  .github-modal-tabs {
+    min-width: 0;
+    max-width: 100vw;
+    height: auto;
+    max-height: 180px;
+  }
+  .github-modal-code-preview .tab-code-preview {
+    min-height: 120px;
+    max-height: 180px;
+    font-size: 0.98em;
   }
 }
 @media (max-width: 600px) {
