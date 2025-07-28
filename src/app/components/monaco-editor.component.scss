@@ -55,16 +55,16 @@
   position: absolute;
   top: 110%;
   left: 0;
-  min-width: 170px;
+  min-width: 220px;
   background: var(--dropdown-bg, #23272e);
   border: 1.5px solid var(--dropdown-border, #353945);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px #0003;
-  padding: 0.4rem 0.2rem;
-  z-index: 10;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px #0005, 0 2px 8px #0002;
+  padding: 0.7rem 0.3rem 0.7rem 0.3rem;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.25rem;
   animation: dropdown-fade-in 0.18s;
 }
 @keyframes dropdown-fade-in {
@@ -75,16 +75,18 @@
   background: none;
   border: none;
   color: var(--dropdown-color, #e6e6e6);
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 500;
-  padding: 0.5rem 1.2rem 0.5rem 0.9rem;
-  border-radius: 8px;
+  padding: 0.8rem 1.6rem 0.8rem 1.2rem;
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
   cursor: pointer;
   transition: background 0.16s, color 0.16s;
   text-align: left;
+  min-width: 180px;
+  position: relative;
 }
 .dropdown-item.selected {
   background: #4f8cff22;
@@ -93,6 +95,29 @@
 .dropdown-item:hover {
   background: #353945;
   color: #fff;
+}
+
+// Tooltip
+.dropdown-tooltip {
+  display: none;
+  position: absolute;
+  left: 105%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #23272e;
+  color: #fff;
+  padding: 0.6em 1.1em;
+  border-radius: 10px;
+  font-size: 0.98em;
+  box-shadow: 0 4px 24px #0005;
+  white-space: pre-line;
+  z-index: 100;
+  min-width: 180px;
+  max-width: 260px;
+  pointer-events: none;
+}
+.dropdown-item:hover .dropdown-tooltip {
+  display: block;
 }
 .language-select {
   opacity: 0;

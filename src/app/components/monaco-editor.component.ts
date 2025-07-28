@@ -71,53 +71,53 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   scriptTemplates = [
     {
       name: 'onInit',
-      description: 'Sayfa ilk yüklendiğinde tetiklenir.',
-      code: `function onInit() {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Triggered when the page is first loaded.',
+      code: `function onInit() {\n  // Write your code here\n}`
     },
     {
       name: 'onReady',
-      description: 'Sayfa tamamen hazır olduğunda çalışır.',
-      code: `function onReady() {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Runs when the page is fully ready.',
+      code: `function onReady() {\n  // Write your code here\n}`
     },
     {
       name: 'onSelect',
-      description: 'Kullanıcı bir kayıt seçtiğinde tetiklenir.',
-      code: `function onSelect(record) {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Triggered when a user selects a record.',
+      code: `function onSelect(record) {\n  // Write your code here\n}`
     },
     {
       name: 'onEdit',
-      description: 'Kullanıcı düzenleme moduna geçtiğinde tetiklenir.',
-      code: `function onEdit(data) {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Triggered when the user enters edit mode.',
+      code: `function onEdit(data) {\n  // Write your code here\n}`
     },
     {
       name: 'onValidate',
-      description: 'Kayıt kaydedilmeden önce çalışır. false dönerse kayıt engellenir.',
-      code: `function onValidate() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      description: 'Runs before saving a record. If false is returned, saving is prevented.',
+      code: `function onValidate() {\n  // Write your code here\n  return true;\n}`
     },
     {
       name: 'onSave',
-      description: 'Kayıt kaydedileceği sırada tetiklenir.',
-      code: `function onSave(data) {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Triggered when a record is about to be saved.',
+      code: `function onSave(data) {\n  // Write your code here\n}`
     },
     {
       name: 'onClick',
-      description: 'Özel bir butona tıklanınca çalışır.',
-      code: `function onClick(event) {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Runs when a custom button is clicked.',
+      code: `function onClick(event) {\n  // Write your code here\n}`
     },
     {
       name: 'onVisible',
-      description: 'Alanın görünürlüğünü kontrol eder.',
-      code: `function onVisible() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      description: 'Controls the visibility of the field.',
+      code: `function onVisible() {\n  // Write your code here\n  return true;\n}`
     },
     {
       name: 'onEnabled',
-      description: 'Alanın aktifliğini kontrol eder.',
-      code: `function onEnabled() {\n  // Kodunuzu buraya yazın\n  return true;\n}`
+      description: 'Controls whether the field is enabled.',
+      code: `function onEnabled() {\n  // Write your code here\n  return true;\n}`
     },
     {
       name: 'onCalculate',
-      description: 'Hesaplama yapmak için kullanılır.',
-      code: `function onCalculate() {\n  // Kodunuzu buraya yazın\n}`
+      description: 'Used to perform calculations.',
+      code: `function onCalculate() {\n  // Write your code here\n}`
     }
   ];
   selectedScriptIdx = 0;
@@ -352,9 +352,21 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   }
 
   onScriptChange(idx: number) {
-    this.selectedScriptIdx = idx;
+    const script = this.scriptTemplates[idx];
+    // Aynı scriptten kaç tane açık tab var?
+    const sameTabs = this.openTabs.filter(t => t.name.startsWith(script.name));
+    const tabNumber = sameTabs.length + 1;
+    const tabName = `${script.name} ${tabNumber}`;
+    this.openTabs.push({
+      lang: 'javascript',
+      idx: this.openTabs.length, // benzersiz index
+      name: tabName,
+      code: script.code,
+      language: 'javascript'
+    });
+    this.activeTab = { lang: 'javascript', idx: this.openTabs.length - 1 };
     if (this.editor) {
-      this.editor.setValue(this.scriptTemplates[idx].code);
+      this.editor.setValue(script.code);
     }
   }
 } 
