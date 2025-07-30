@@ -31,9 +31,9 @@
       <p class="hero-slogan wow-fade-in-delay">Build, experiment, and share code instantly.<br><span class="slogan-highlight">Fast, beautiful, and developer-focused</span>—just like your favorite tools.</p>
     </div>
     <div class="hero-actions">
-      <a routerLink="/editor" class="hero-btn primary wow-glow">
+      <button (click)="openEditorModal()" class="hero-btn primary wow-glow">
         <span>Start Coding Now</span>
-      </a>
+      </button>
       <a href="https://microsoft.github.io/monaco-editor/" target="_blank" class="hero-btn secondary">
         <span>Learn More</span>
       </a>
@@ -130,4 +130,27 @@
       </a>
     </div>
   </div>
-</footer> 
+</footer>
+
+<!-- Editor Modal -->
+<div class="modal-overlay" [class.active]="isModalOpen" (click)="closeEditorModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Monaco Editor</h2>
+      <button class="modal-close" (click)="closeEditorModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-content">
+      <div *ngIf="isBrowser" class="modal-editor-wrapper">
+        <app-monaco-editor></app-monaco-editor>
+      </div>
+      <div *ngIf="!isBrowser" class="loading-placeholder">
+        <div class="loading-spinner"></div>
+        <p>Loading editor...</p>
+      </div>
+    </div>
+  </div>
+</div> 

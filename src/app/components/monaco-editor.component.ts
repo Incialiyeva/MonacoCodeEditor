@@ -338,13 +338,15 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   toggleTheme() {
     this.selectedTheme = this.selectedTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
     // Sadece feature fonksiyonunu çağır
-    applyMonacoTheme({
-      monaco: window.monaco,
-      editor: this.editor,
-      theme: this.selectedTheme,
-      hostElement: this.hostRef.nativeElement,
-      renderer: this.renderer
-    });
+    if (isPlatformBrowser(this.platformId) && window.monaco && this.editor) {
+      applyMonacoTheme({
+        monaco: window.monaco,
+        editor: this.editor,
+        theme: this.selectedTheme,
+        hostElement: this.hostRef.nativeElement,
+        renderer: this.renderer
+      });
+    }
   }
 
   selectTab(idx: number) {
@@ -496,7 +498,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
   showDiff() {
-    if (isPlatformBrowser(this.platformId) && this.editor) {
+    if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
       const tabKey = this.getActiveTabKey();
       const original = this.lastSavedCodeByTab[tabKey] || '';
       const modified = this.editor.getValue();

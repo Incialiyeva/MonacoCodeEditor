@@ -759,4 +759,221 @@
   .hero-actions {
     justify-content: center;
   }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  &.active {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.modal-container {
+  background: #0d1117;
+  border-radius: 20px;
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(88, 166, 255, 0.1);
+  width: 95vw;
+  height: 90vh;
+  max-width: 1400px;
+  max-height: 900px;
+  position: relative;
+  transform: scale(0.9) translateY(20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  
+  .modal-overlay.active & {
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(88, 166, 255, 0.1);
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.05) 0%, rgba(88, 166, 255, 0.02) 100%);
+  
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #c9d1d9;
+    margin: 0;
+  }
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #c9d1d9;
+    border-color: rgba(88, 166, 255, 0.3);
+    transform: scale(1.05);
+  }
+  
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.modal-content {
+  height: calc(100% - 80px);
+  overflow: hidden;
+  
+  app-monaco-editor {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+.modal-editor-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  
+  app-monaco-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    
+    // Override host styles for modal
+    :host {
+      min-height: auto !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column;
+    }
+    
+    .editor-toolbar {
+      flex-shrink: 0;
+    }
+    
+    .tabbar {
+      flex-shrink: 0;
+    }
+    
+    .editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      
+      .editor-container {
+        flex: 1;
+        min-height: 0;
+      }
+    }
+  }
+}
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #8b949e;
+  
+  p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(88, 166, 255, 0.2);
+  border-top: 3px solid #58a6ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .modal-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    max-width: none;
+    max-height: none;
+  }
+  
+  .modal-header {
+    padding: 1rem 1.5rem;
+    
+    h2 {
+      font-size: 1.3rem;
+    }
+  }
+  
+  .modal-content {
+    height: calc(100% - 70px);
+  }
+  
+  .modal-editor-wrapper {
+    app-monaco-editor {
+      .editor-toolbar {
+        padding: 0.8rem 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+        
+        .toolbar-actions {
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        
+        .toolbar-btn {
+          padding: 0.4rem 0.8rem;
+          font-size: 0.9rem;
+        }
+      }
+      
+      .tabbar {
+        padding: 0.5rem 1rem;
+        
+        button {
+          padding: 0.4rem 0.8rem;
+          font-size: 0.9rem;
+        }
+      }
+    }
+  }
 } 
