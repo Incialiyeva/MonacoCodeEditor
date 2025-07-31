@@ -1,6 +1,7 @@
 :host {
-  display: block;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   font-size: 16px;
   letter-spacing: 0.01em;
@@ -171,63 +172,6 @@
   color: #fff;
   border: 1.5px solid #4f8cff;
 }
-.tabbar {
-  display: flex;
-  align-items: center;
-  background: var(--tabbar-bg, #20232a);
-  border-bottom: 1.5px solid var(--tabbar-border, #23272e);
-  padding-left: 5.5rem;
-  gap: 0.4rem;
-  z-index: 1;
-  min-height: 36px;
-  box-shadow: 0 4px 24px #0001;
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
-}
-.tabbar button {
-  position: relative;
-  background: var(--tab-bg, #23272e);
-  color: var(--tab-color, #bfc7d5);
-  border: none;
-  border-bottom: 2.5px solid transparent;
-  padding: 0.4rem 1.3rem 0.4rem 1.3rem;
-
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-right: 0.1rem;
-  font-weight: 500;
-  transition: background 0.2s, color 0.2s, border-bottom 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 12px #0001;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.tabbar button.active {
-  background: var(--tab-active-bg, #181a20);
-  color: #4f8cff;
-  border-bottom: 2.5px solid #4f8cff;
-  box-shadow: 0 4px 24px #0002;
-  z-index: 2;
-}
-.tabbar button:hover {
-  background: #353945;
-  color: #fff;
-}
-.close-btn {
-  color: #bfc7d5;
-  margin-left: 0.7rem;
-  font-size: 1.1em;
-  cursor: pointer;
-  border-radius: 50%;
-  padding: 0 0.4em;
-  transition: background 0.2s, color 0.2s;
-  position: relative;
-  top: 1px;
-}
-.close-btn:hover {
-  background: #353945;
-  color: #ff4d4f;
-}
 .editor-area {
   width: 100%;
   min-height: 400px;
@@ -235,17 +179,110 @@
   display: flex;
   flex-direction: column;
   background: none;
+  position: relative;
+  flex: 1;
 }
+
+.dialog-bottom-buttons {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 1rem;
+  display: flex;
+  gap: 0.8rem;
+  z-index: 10;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(35, 39, 46, 0.8);
+  color: #bfc7d5;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.6s ease;
+  }
+  
+  &:hover::before {
+    left: 100%;
+  }
+}
+
+.dialog-btn:hover {
+  background: rgba(35, 39, 46, 0.95);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-btn.prettier-btn {
+  color: #4f8cff;
+  border-color: rgba(79, 140, 255, 0.3);
+  background: rgba(79, 140, 255, 0.05);
+}
+
+.dialog-btn.prettier-btn:hover {
+  background: rgba(79, 140, 255, 0.15);
+  border-color: rgba(79, 140, 255, 0.6);
+  color: #4f8cff;
+  box-shadow: 0 4px 12px rgba(79, 140, 255, 0.3);
+}
+
+.dialog-btn.diff-btn {
+  color: #ffb300;
+  border-color: rgba(255, 179, 0, 0.3);
+  background: rgba(255, 179, 0, 0.05);
+  padding: 0.5rem;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.dialog-btn.diff-btn:hover {
+  background: rgba(255, 179, 0, 0.15);
+  border-color: rgba(255, 179, 0, 0.6);
+  color: #ffb300;
+  box-shadow: 0 4px 12px rgba(255, 179, 0, 0.3);
+}
+
+.dialog-btn svg {
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.dialog-btn:hover svg {
+  transform: scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
 .editor-container {
   width: 100%;
-  height: 400px;
+  height: 100%;
   min-height: 300px;
   background: #181a20;
   border: 1.5px solid #23272e;
   box-shadow: 0 2px 12px #0002;
+  flex: 1;
 }
 :host ::ng-deep .monaco-editor {
-  height: 600px !important;
+  height: 100% !important;
   width: 100% !important;
   font-size: 1.1rem;
   border-radius: 0 0 18px 18px;
@@ -269,11 +306,6 @@
   --dropdown-color: #e6e6e6;
   --dropdown-border: #353945;
   --dropdown-hover-bg: #23272e;
-  --tabbar-bg: #20232a;
-  --tabbar-border: #23272e;
-  --tab-bg: #23272e;
-  --tab-color: #bfc7d5;
-  --tab-active-bg: #181a20;
 }
 :host-context(.light-theme) {
   --toolbar-bg: #fff;
@@ -282,11 +314,6 @@
   --dropdown-color: #23272e;
   --dropdown-border: #e0e0e0;
   --dropdown-hover-bg: #f7f7f7;
-  --tabbar-bg: #f7f7f7;
-  --tabbar-border: #e0e0e0;
-  --tab-bg: #fff;
-  --tab-color: #23272e;
-  --tab-active-bg: #fff;
 }
 
 /* Sade, düz renkli, modern butonlar */
@@ -897,4 +924,108 @@
 }
 .diff-right textarea:contains("+") {
   background: #0d4a1a;
+} 
+
+.dialog-bottom-actions {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.8rem;
+  z-index: 10;
+}
+
+.dialog-btn.cancel-btn {
+  color: #bfc7d5;
+  border-color: rgba(191, 199, 213, 0.3);
+  background: rgba(191, 199, 213, 0.05);
+}
+
+.dialog-btn.cancel-btn:hover {
+  background: rgba(191, 199, 213, 0.15);
+  border-color: rgba(191, 199, 213, 0.6);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(191, 199, 213, 0.3);
+}
+
+.dialog-btn.save-btn {
+  color: #3fb950;
+  border-color: rgba(63, 185, 80, 0.3);
+  background: rgba(63, 185, 80, 0.05);
+}
+
+.dialog-btn.save-btn:hover {
+  background: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.6);
+  color: #3fb950;
+  box-shadow: 0 4px 12px rgba(63, 185, 80, 0.3);
+}
+
+@media (max-width: 768px) {
+  .dialog-bottom-buttons {
+    bottom: 0.4rem;
+    left: 0.8rem;
+    gap: 0.6rem;
+    
+    .dialog-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    }
+    
+    .dialog-btn.diff-btn {
+      padding: 0.4rem;
+      min-width: 36px;
+    }
+  }
+  
+  .dialog-bottom-actions {
+    bottom: 0.4rem;
+    right: 0.8rem;
+    gap: 0.6rem;
+    
+    .dialog-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-bottom-buttons {
+    bottom: 0.3rem;
+    left: 0.6rem;
+    gap: 0.5rem;
+    
+    .dialog-btn {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+      gap: 0.3rem;
+      
+      svg {
+        width: 12px;
+        height: 12px;
+      }
+    }
+    
+    .dialog-btn.diff-btn {
+      padding: 0.35rem;
+      min-width: 32px;
+    }
+  }
+  
+  .dialog-bottom-actions {
+    bottom: 0.3rem;
+    right: 0.6rem;
+    gap: 0.5rem;
+    
+    .dialog-btn {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+    }
+  }
 } 

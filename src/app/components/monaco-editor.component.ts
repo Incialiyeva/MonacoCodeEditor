@@ -541,28 +541,21 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   }
 
   onScriptChange(idx: number) {
+    this.selectedScriptIdx = idx; // Update selected script index
     const script = this.scriptTemplates[idx];
-    // Aynı scriptten kaç tane açık tab var?
-    const sameTabs = this.openTabs.filter(t => t.name.startsWith(script.name));
-    const tabNumber = sameTabs.length + 1;
-    const tabName = `${script.name} ${tabNumber}`;
     
-    const newTab = {
-      lang: 'javascript',
-      idx: this.openTabs.length, // benzersiz index
-      name: tabName,
-      code: script.code,
-      language: 'javascript'
-    };
-    
-    this.openTabs.push(newTab);
-    this.activeTab = { lang: 'javascript', idx: this.openTabs.length - 1 };
-    
-    // Orijinal kodu sakla
-    const tabKey = this.getTabKey(newTab);
-    this.saveOriginalCode(tabKey, script.code);
+    const tabKey = `script_${idx}`; // Simplified tabKey
+    this.originalCodeByTab[tabKey] = script.code; // Save original code when script changes
     
     if (this.editor) {
+      this.editor.setValue(script.code);
+    }
+  }
+
+  // Revert changes to original script template
+  revertChanges() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const script = this.scriptTemplates[this.selectedScriptIdx];
       this.editor.setValue(script.code);
     }
   }
