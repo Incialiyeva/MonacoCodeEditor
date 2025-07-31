@@ -31,7 +31,7 @@
       <p class="hero-slogan wow-fade-in-delay">Build, experiment, and share code instantly.<br><span class="slogan-highlight">Fast, beautiful, and developer-focused</span>—just like your favorite tools.</p>
     </div>
     <div class="hero-actions">
-      <button (click)="openEditorModal()" class="hero-btn primary wow-glow">
+      <button (click)="openScriptSelectionModal()" class="hero-btn primary wow-glow">
         <span>Start Coding Now</span>
       </button>
       <a href="https://microsoft.github.io/monaco-editor/" target="_blank" class="hero-btn secondary">
@@ -132,6 +132,48 @@
   </div>
 </footer>
 
+<!-- Script Selection Modal -->
+<div class="modal-overlay" [class.active]="isScriptModalOpen" (click)="closeScriptSelectionModal()">
+  <div class="modal-container script-selection-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="margin-right: 0.5rem;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Select Function
+      </div>
+      <button class="modal-close" (click)="closeScriptSelectionModal()" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-content script-selection-content">
+      <div class="script-list">
+        <div *ngFor="let script of scriptTemplates; let i = index" 
+             class="script-item" 
+             (click)="selectScript(i)">
+          <div class="script-item-content">
+            <div class="script-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="script-name">{{ script.name }}</span>
+            <div class="script-arrow">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Editor Modal -->
 <div class="modal-overlay" [class.active]="isModalOpen" (click)="closeEditorModal()">
   <div class="modal-container" (click)="$event.stopPropagation()">
@@ -144,17 +186,41 @@
           <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <polyline points="10,9 9,9 8,9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        Monaco Code Editor
+        Monaco Code Editor - {{ scriptTemplates[selectedScriptIndex].name }}
       </div>
-      <button class="modal-close" (click)="closeEditorModal()" title="Close">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <div class="modal-header-actions">
+        <button class="theme-toggle-btn" title="Toggle dark/light mode" (click)="toggleEditorTheme()">
+          <ng-container *ngIf="editorTheme === 'vs-dark'; else lightIcon">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/>
+            </svg>
+          </ng-container>
+          <ng-template #lightIcon>
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="5" fill="#f7df1e"/>
+              <g stroke="#f7df1e" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="4"/>
+                <line x1="12" y1="20" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
+                <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="4" y2="12"/>
+                <line x1="20" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/>
+                <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
+              </g>
+            </svg>
+          </ng-template>
+        </button>
+        <button class="modal-close" (click)="closeEditorModal()" title="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
     <div class="modal-content">
       <div *ngIf="isBrowser" class="modal-editor-wrapper">
-        <app-monaco-editor></app-monaco-editor>
+        <app-monaco-editor [selectedScriptIndex]="selectedScriptIndex" [editorTheme]="editorTheme"></app-monaco-editor>
       </div>
       <div *ngIf="!isBrowser" class="loading-placeholder">
         <div class="loading-spinner"></div>

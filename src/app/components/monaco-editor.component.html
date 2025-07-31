@@ -1,25 +1,5 @@
 <div class="editor-toolbar">
-  <div class="dropdown-group" (clickOutside)="dropdownOpen = false">
-    <button class="dropdown-btn premium" (click)="dropdownOpen = !dropdownOpen" [attr.aria-expanded]="dropdownOpen">
-      <span style="font-weight:bold;">{{ scriptTemplates[selectedScriptIdx].name }}</span>
-      <svg width="14" height="14" viewBox="0 0 20 20" style="margin-left:0.5rem;transition:transform 0.2s;" [style.transform]="dropdownOpen ? 'rotate(180deg)' : ''"><path d="M5 8l5 5 5-5" stroke="#bfc7d5" stroke-width="2" fill="none"/></svg>
-    </button>
-    <div class="dropdown-menu premium" *ngIf="dropdownOpen">
-      <button *ngFor="let script of scriptTemplates; let i = index" class="dropdown-item" [class.selected]="i === selectedScriptIdx"
-        (click)="onScriptChange(i); dropdownOpen = false">
-        <span style="font-weight:bold;">{{ script.name }}</span>
-        <div class="dropdown-tooltip">{{ script.description }}</div>
-      </button>
-    </div>
-  </div>
-  <button class="theme-toggle modern-btn" title="Toggle dark/light mode" (click)="toggleTheme()">
-    <ng-container *ngIf="selectedTheme === 'vs-dark'; else lightIcon">
-      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#bfc7d5"/></svg>
-    </ng-container>
-    <ng-template #lightIcon>
-      <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#f7df1e"/><g stroke="#f7df1e" stroke-width="2"><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></g></svg>
-    </ng-template>
-  </button>
+  <!-- Theme toggle button removed - will be added to modal header -->
 </div>
 <div class="editor-area">
   <div #editorContainer class="editor-container" style="width:100%;height:400px;"></div>

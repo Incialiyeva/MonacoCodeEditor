@@ -1,4 +1,4 @@
-import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit } from '@angular/core';
+import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -32,14 +32,15 @@ declare global {
   templateUrl: './monaco-editor.component.html',
   styleUrls: ['./monaco-editor.component.scss']
 })
-export class MonacoEditorComponent implements AfterViewInit, OnInit {
+export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
+  @Input() selectedScriptIndex: number = 0;
+  @Input() editorTheme: string = 'vs-dark';
   editor: any;
 
   languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
   selectedTheme = 'vs-dark';
-  dropdownOpen = false;
 
   // Her dil için sekmeler ve kodlar
   tabsByLanguage: Record<string, EditorTab[]> = {
@@ -177,7 +178,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       code: `function onCalculate() {\n  // Write your code here\n}`
     }
   ];
-  selectedScriptIdx = 0;
 
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
@@ -195,6 +195,25 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   ngOnInit() {
     if (isPlatformBrowser(this.platformId)) {
       // Artık dil listesi yok, script seçimi var
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['selectedScriptIndex'] && this.editor && isPlatformBrowser(this.platformId)) {
+      const newScriptIndex = changes['selectedScriptIndex'].currentValue;
+      const selectedScript = this.scriptTemplates[newScriptIndex];
+      if (selectedScript) {
+        this.editor.setValue(selectedScript.code);
+        console.log('Script changed to:', selectedScript.name);
+      }
+    }
+    
+    if (changes['editorTheme'] && this.editor && isPlatformBrowser(this.platformId)) {
+      const newTheme = changes['editorTheme'].currentValue;
+      if (window.monaco) {
+        window.monaco.editor.setTheme(newTheme);
+        console.log('Theme changed to:', newTheme);
+      }
     }
   }
 
@@ -297,19 +316,23 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
         }
       };
       window.require(['vs/editor/editor.main'], () => {
-        const tab = this.scriptTemplates[this.selectedScriptIdx];
+        // Seçilen script template'ini al
+        const selectedScript = this.scriptTemplates[this.selectedScriptIndex];
         this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
-          value: tab.code,
+          value: selectedScript.code,
           language: 'javascript',
-          theme: 'vs-dark',
+          theme: this.editorTheme,
           automaticLayout: true
         });
+        
+        // Editor içeriği değiştiğinde script template'ini güncelle
         this.editor.onDidChangeModelContent(() => {
-          this.scriptTemplates[this.selectedScriptIdx].code = this.editor.getValue();
+          this.scriptTemplates[this.selectedScriptIndex].code = this.editor.getValue();
         });
+        
         // Sadece intellisense provider fonksiyonunu çağır
         registerMonacoIntellisense(window.monaco);
-        console.log('Monaco editor mounted!');
+        console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
       });
     } else {
       console.error('Monaco loader.js (window.require) bulunamadı!');
@@ -540,22 +563,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     }
   }
 
-  onScriptChange(idx: number) {
-    this.selectedScriptIdx = idx; // Update selected script index
-    const script = this.scriptTemplates[idx];
-    
-    const tabKey = `script_${idx}`; // Simplified tabKey
-    this.originalCodeByTab[tabKey] = script.code; // Save original code when script changes
-    
-    if (this.editor) {
-      this.editor.setValue(script.code);
-    }
-  }
-
   // Revert changes to original script template
   revertChanges() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
-      const script = this.scriptTemplates[this.selectedScriptIdx];
+      const script = this.scriptTemplates[this.selectedScriptIndex];
       this.editor.setValue(script.code);
     }
   }
