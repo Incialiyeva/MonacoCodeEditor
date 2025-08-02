@@ -185,6 +185,31 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       name: 'SQL with Errors',
       description: 'SQL with intentional errors for testing validation.',
       code: `SELECT * FROM users\nWHERE active = 1\nORDER BY created_at DESC`
+    },
+    {
+      name: 'SQL Complex Errors',
+      description: 'SQL with multiple intentional errors for comprehensive testing.',
+      code: `SELECT * FROM users\nWHERE active\nORDER BY\nGROUP BY name\nINSERT users (name, email)\nUPDATE users\nDELETE users\nCREATE TABLE users\nJOIN orders`
+    },
+    {
+      name: 'Valid SQL Examples',
+      description: 'Valid SQL statements for testing.',
+      code: `SELECT * FROM users WHERE active = 1;\n\nUPDATE users SET last_login = NOW() WHERE id = 1;\n\nINSERT INTO users (name, email) VALUES ('John', 'john@example.com');`
+    },
+    {
+      name: 'SQL with Typos',
+      description: 'SQL with common typos for testing validation.',
+      code: `SELEC id, name email\nFORM users\nWHERE active = 'yes'\nAND ORDER BY created_at DESC`
+    },
+    {
+      name: 'Complex SQL Query',
+      description: 'Complex SQL query with multiple clauses.',
+      code: `SELECT u.id, u.name, u.email, COUNT(o.id) as order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nWHERE u.active = 1\nAND u.created_at > '2023-01-01'\nGROUP BY u.id, u.name, u.email\nHAVING COUNT(o.id) > 0\nORDER BY order_count DESC\nLIMIT 10`
+    },
+    {
+      name: 'SQL with Functions',
+      description: 'SQL with various functions and expressions.',
+      code: `SELECT \n  id,\n  name,\n  email,\n  CONCAT(first_name, ' ', last_name) as full_name,\n  COUNT(*) as total_orders,\n  SUM(amount) as total_amount,\n  AVG(amount) as avg_amount\nFROM users u\nJOIN orders o ON u.id = o.user_id\nWHERE status = 'active'\nGROUP BY id, name, email, first_name, last_name\nHAVING total_amount > 1000\nORDER BY total_amount DESC`
     }
   ];
 
@@ -441,6 +466,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (window.monaco && this.editor) {
       const model = this.editor.getModel();
       if (model) {
+        const language = this.detectLanguageFromCode(this.editor.getValue());
+        const namespace = language === 'html' ? 'html-validation' : 'sql-validation';
+        
         const markers = errors.map((error, index) => ({
           message: error,
           severity: window.monaco.MarkerSeverity.Error,
@@ -450,7 +478,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           endColumn: model.getLineMaxColumn(model.getLineCount())
         }));
         
-        window.monaco.editor.setModelMarkers(model, 'html-validation', markers);
+        window.monaco.editor.setModelMarkers(model, namespace, markers);
       }
     }
   }
@@ -460,7 +488,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (window.monaco && this.editor) {
       const model = this.editor.getModel();
       if (model) {
-        window.monaco.editor.setModelMarkers(model, 'html-validation', []);
+        const language = this.detectLanguageFromCode(this.editor.getValue());
+        const namespace = language === 'html' ? 'html-validation' : 'sql-validation';
+        window.monaco.editor.setModelMarkers(model, namespace, []);
       }
     }
   }
