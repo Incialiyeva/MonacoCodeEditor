@@ -1,11 +1,10 @@
-import { Component, signal } from '@angular/core';
-import { MonacoEditorComponent } from './components/monaco-editor.component';
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  imports: [MonacoEditorComponent],
-  template: `<app-monaco-editor></app-monaco-editor>`
+  standalone: true,
+  imports: [RouterOutlet],
+  template: `<router-outlet></router-outlet>`
 })
-export class App {
-  protected readonly title = signal('monaco-editor-app');
-}
+export class App {}

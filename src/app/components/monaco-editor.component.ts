@@ -1,10 +1,20 @@
-import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit } from '@angular/core';
+import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import * as prettier from 'prettier/standalone';
 import * as parserBabel from 'prettier/plugins/babel';
 import * as parserEstree from 'prettier/plugins/estree';
+
+// Yeni feature importları
+import { registerMonacoIntellisense } from '../features/intellisense/monaco-intellisense.provider';
+import { formatWithPrettier } from '../features/prettier/prettier-format.util';
+import { showMonacoDiff } from '../features/diff/monaco-diff.util';
+import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
+import { registerHTMLLanguage } from '../features/language/html-language.provider';
+import { registerSQLLanguage } from '../features/language/sql-language.provider';
+import { validateHTML } from '../features/language/html-validation.util';
+import { validateSQL } from '../features/language/sql-validation.util';
 
 interface EditorTab {
   name: string;
@@ -15,6 +25,7 @@ declare global {
   interface Window {
     require: any;
     monaco: any;
+    MonacoEnvironment?: any;
   }
 }
 
@@ -25,14 +36,15 @@ declare global {
   templateUrl: './monaco-editor.component.html',
   styleUrls: ['./monaco-editor.component.scss']
 })
-export class MonacoEditorComponent implements AfterViewInit, OnInit {
+export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
+  @Input() selectedScriptIndex: number = 0;
+  @Input() editorTheme: string = 'vs-dark';
   editor: any;
 
   languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
   selectedTheme = 'vs-dark';
-  dropdownOpen = false;
 
   // Her dil için sekmeler ve kodlar
   tabsByLanguage: Record<string, EditorTab[]> = {
@@ -58,6 +70,124 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   openTabs: { lang: string, idx: number, name: string, code: string, language: string }[];
   activeTab: { lang: string, idx: number };
 
+  // Son kaydedilen kodu saklamak için
+  lastSavedCodeByTab: Record<string, string> = {};
+  showSaveModal = false;
+  selectedTabsForSave: number[] = [];
+  chooseAllForSave = true;
+  activeTabForSave: number = 0;
+
+  // Diff için orijinal kodları sakla
+  originalCodeByTab: Record<string, string> = {};
+
+  openSaveModal() {
+    this.selectedTabsForSave = this.openTabs.map((_, i) => i);
+    this.chooseAllForSave = true;
+    this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    this.showSaveModal = true;
+  }
+
+  toggleChooseAllForSave() {
+    if (this.chooseAllForSave) {
+      this.selectedTabsForSave = this.openTabs.map((_, i) => i);
+    } else {
+      this.selectedTabsForSave = [];
+    }
+    // Aktif sekme seçili değilse, ilk seçiliyi aktif yap
+    if (!this.selectedTabsForSave.includes(this.activeTabForSave)) {
+      this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    }
+  }
+
+  toggleTabForSave(idx: number) {
+    if (this.selectedTabsForSave.includes(idx)) {
+      this.selectedTabsForSave = this.selectedTabsForSave.filter(i => i !== idx);
+    } else {
+      this.selectedTabsForSave = [...this.selectedTabsForSave, idx];
+    }
+    this.chooseAllForSave = this.selectedTabsForSave.length === this.openTabs.length;
+    // Aktif sekme seçili değilse, ilk seçiliyi aktif yap
+    if (!this.selectedTabsForSave.includes(this.activeTabForSave)) {
+      this.activeTabForSave = this.selectedTabsForSave[0] ?? 0;
+    }
+  }
+
+  setActiveTabForSave(idx: number) {
+    this.activeTabForSave = idx;
+  }
+
+  saveSelectedTabs() {
+    // Sadece seçili sekmelerin kodunu kaydet (örnek: console.log)
+    const selectedTabs = this.openTabs.filter((_, i) => this.selectedTabsForSave.includes(i));
+    selectedTabs.forEach(tab => {
+      console.log('Saved tab:', tab.name, tab.code);
+      // Burada gerçek kaydetme işlemi yapılabilir
+    });
+    this.showSaveModal = false;
+  }
+
+  cancelSaveModal() {
+    this.showSaveModal = false;
+  }
+
+  scriptTemplates = [
+    {
+      name: 'onInit',
+      description: 'Triggered when the page is first loaded.',
+      code: `function onInit() {\n  // Initialize your application here\n  console.log('Application initialized');\n}`
+    },
+    {
+      name: 'onClick',
+      description: 'Runs when a button is clicked.',
+      code: `function onClick(event) {\n  // Handle button click here\n  console.log('Button clicked:', event);\n}`
+    },
+    {
+      name: 'onSave',
+      description: 'Triggered when data is being saved.',
+      code: `function onSave(data) {\n  // Handle data saving here\n  console.log('Saving data:', data);\n  return true; // Return true to allow save\n}`
+    },
+    {
+      name: 'SELECT Users',
+      description: 'Query to select all users from database.',
+      code: `SELECT * FROM users\nWHERE active = 1\nORDER BY created_at DESC;`
+    },
+    {
+      name: 'INSERT Record',
+      description: 'Insert a new record into database.',
+      code: `INSERT INTO users (name, email, created_at)\nVALUES ('John Doe', 'john@example.com', NOW());`
+    },
+    {
+      name: 'UPDATE Data',
+      description: 'Update existing records in database.',
+      code: `UPDATE users\nSET last_login = NOW()\nWHERE id = ?;`
+    },
+    {
+      name: 'HTML Form',
+      description: 'Basic HTML form structure.',
+      code: `<!DOCTYPE html>\n<html>\n<head>\n  <title>Form</title>\n</head>\n<body>\n  <form>\n    <input type="text" placeholder="Name">\n    <button type="submit">Submit</button>\n  </form>\n</body>\n</html>`
+    },
+    {
+      name: 'HTML Table',
+      description: 'HTML table structure.',
+      code: `<!DOCTYPE html>\n<html>\n<head>\n  <title>Table</title>\n</head>\n<body>\n  <table>\n    <tr>\n      <th>Name</th>\n      <th>Email</th>\n    </tr>\n    <tr>\n      <td>John</td>\n      <td>john@example.com</td>\n    </tr>\n  </table>\n</body>\n</html>`
+    },
+    {
+      name: 'HTML Card',
+      description: 'HTML card component.',
+      code: `<!DOCTYPE html>\n<html>\n<head>\n  <title>Card</title>\n</head>\n<body>\n  <div class="card">\n    <h3>Card Title</h3>\n    <p>Card content goes here</p>\n    <button>Action</button>\n  </div>\n</body>\n</html>`
+    },
+    {
+      name: 'HTML with Errors',
+      description: 'HTML with intentional errors for testing validation.',
+      code: `<html>\n<head>\n  <title>Test</title>\n</head>\n<body>\n  <div>\n    <h1>Test</h1>\n    <p>This is a test\n    <div>\n      <span>Nested content</div>\n    </div>\n  </div>\n</body>\n</html>`
+    },
+    {
+      name: 'SQL with Errors',
+      description: 'SQL with intentional errors for testing validation.',
+      code: `SELECT * FROM users\nWHERE active = 1\nORDER BY created_at DESC`
+    }
+  ];
+
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
     @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null,
@@ -73,24 +203,31 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   ngOnInit() {
     if (isPlatformBrowser(this.platformId)) {
-      const safe = (svg: string) => this.sanitizer ? this.sanitizer.bypassSecurityTrustHtml(svg) : '';
-      this.languages = [
-        {
-          value: 'javascript',
-          label: 'JavaScript',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#F7DF1E"/><text x="7" y="23" font-size="16" font-family="monospace" fill="#222">JS</text></svg>`)
-        },
-        {
-          value: 'html',
-          label: 'HTML',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E44D26"/><text x="5" y="23" font-size="16" font-family="monospace" fill="#fff">&lt;&gt;</text></svg>`)
-        },
-        {
-          value: 'sql',
-          label: 'SQL',
-          icon: safe(`<svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#336791"/><ellipse cx="16" cy="16" rx="10" ry="6" fill="#fff"/><text x="8" y="21" font-size="14" font-family="monospace" fill="#336791">SQL</text></svg>`)
+      // Artık dil listesi yok, script seçimi var
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['selectedScriptIndex'] && this.editor && isPlatformBrowser(this.platformId)) {
+      const newScriptIndex = changes['selectedScriptIndex'].currentValue;
+      const selectedScript = this.scriptTemplates[newScriptIndex];
+      if (selectedScript) {
+        const language = this.detectLanguageFromCode(selectedScript.code);
+        const model = this.editor.getModel();
+        if (window.monaco && model) {
+          window.monaco.editor.setModelLanguage(model, language);
         }
-      ];
+        this.editor.setValue(selectedScript.code);
+        console.log('Script changed to:', selectedScript.name);
+      }
+    }
+    
+    if (changes['editorTheme'] && this.editor && isPlatformBrowser(this.platformId)) {
+      const newTheme = changes['editorTheme'].currentValue;
+      if (window.monaco) {
+        window.monaco.editor.setTheme(newTheme);
+        console.log('Theme changed to:', newTheme);
+      }
     }
   }
 
@@ -124,17 +261,26 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   // Aktif sekmeyi seç
   selectTabUniversal(lang: string, idx: number) {
+    // Önce mevcut tabdaki kodu kaydet
+    if (this.editor && this.activeTab) {
+      const prevTab = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
+      if (prevTab) {
+        prevTab.code = this.editor.getValue();
+        // Orijinal kodu sakla
+        const tabKey = this.getTabKey(prevTab);
+        this.saveOriginalCode(tabKey, prevTab.code);
+      }
+    }
     this.activeTab = { lang, idx };
     this.selectedLanguage = lang;
     this.selectedTabIndexByLanguage[lang] = idx;
     const tab = this.openTabs.find(t => t.lang === lang && t.idx === idx);
     if (this.editor && tab) {
       const model = this.editor.getModel();
-      // Ensure the language is set to 'javascript' explicitly
-      if (lang === 'javascript') {
-        // @ts-ignore
-        window.monaco.editor.setModelLanguage(model, 'javascript');
+      if (window.monaco && model) {
+        window.monaco.editor.setModelLanguage(model, lang);
       }
+      
       this.editor.setValue(tab.code);
     }
   }
@@ -157,10 +303,16 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   addTab() {
     const lang = this.selectedLanguage;
     const idx = this.tabsByLanguage[lang].length;
-    this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: '' });
+    // Yeni sekme açılırken başa context tipi ekle
+    const contextHeader = '/** @type {MonacoContext} */\nconst self = this;\n';
+    this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: contextHeader });
     this.selectedTabIndexByLanguage[lang] = idx;
     if (this.editor) {
-      this.editor.setValue('');
+      const model = this.editor.getModel();
+      if (model && window.monaco) {
+        window.monaco.editor.setModelLanguage(model, lang);
+      }
+      this.editor.setValue(contextHeader);
     }
   }
 
@@ -169,14 +321,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       return;
     }
     if (typeof window.require === 'function') {
-      // Update the path to match the correct asset directory
-      // @ts-ignore
       window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-      // Set the Monaco environment to specify the base URL for workers
-      // @ts-ignore
       window.MonacoEnvironment = {
         getWorkerUrl: function (workerId: string, label: string) {
-          const baseUrl = window.location.origin + '/assets/monaco'; // Adjusted to remove duplicate 'vs'
+          const baseUrl = window.location.origin + '/assets/monaco';
           return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
             self.MonacoEnvironment = {
               baseUrl: '${baseUrl}'
@@ -185,21 +333,50 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
           `)}`;
         }
       };
-      // @ts-ignore
       window.require(['vs/editor/editor.main'], () => {
-        const tab = this.openTabs.find(t => t.lang === 'javascript') || this.openTabs[0];
-        // @ts-ignore
-        this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
-          value: tab.code,
-          language: 'javascript',
-          theme: 'vs-dark',
-          automaticLayout: true
-        });
-        this.editor.onDidChangeModelContent(() => {
-          const active = this.openTabs.find(t => t.lang === this.activeTab.lang && t.idx === this.activeTab.idx);
-          if (active) active.code = this.editor.getValue();
-        });
-        console.log('Monaco editor mounted!');
+        // Monaco Editor dil modüllerini kaydet
+        if (window.monaco) {
+          // HTML ve SQL dil desteğini kaydet
+          registerHTMLLanguage(window.monaco);
+          registerSQLLanguage(window.monaco);
+        }
+
+        // Seçilen script template'ini al
+        const selectedScript = this.scriptTemplates[this.selectedScriptIndex];
+        if (selectedScript) {
+          const language = this.detectLanguageFromCode(selectedScript.code);
+          this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
+            value: selectedScript.code,
+            language: language,
+            theme: this.editorTheme,
+            automaticLayout: true,
+            // HTML için gelişmiş özellikler
+            ...(language === 'html' && {
+              formatOnPaste: true,
+              formatOnType: true,
+              suggestOnTriggerCharacters: true,
+              quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: true
+              }
+            })
+          });
+          
+          
+          // Editor içeriği değiştiğinde script template'ini güncelle
+          this.editor.onDidChangeModelContent(() => {
+            this.scriptTemplates[this.selectedScriptIndex].code = this.editor.getValue();
+            // Kod hatalarını otomatik kontrol et
+            setTimeout(() => this.checkCodeErrors(), 500);
+          });
+          
+          // Sadece intellisense provider fonksiyonunu çağır
+          registerMonacoIntellisense(window.monaco);
+          console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
+        } else {
+          console.error('Script template not found for index:', this.selectedScriptIndex);
+        }
       });
     } else {
       console.error('Monaco loader.js (window.require) bulunamadı!');
@@ -218,6 +395,76 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     this.selectTabUniversal(lang, idx);
   }
 
+  // Kod içeriğine göre dil tespit et
+  detectLanguageFromCode(code: string): string {
+    if (code.trim().startsWith('<!DOCTYPE html') || code.includes('<html')) {
+      return 'html';
+    }
+    if (code.toLowerCase().startsWith('select') || code.toLowerCase().includes('from')) {
+      return 'sql';
+    }
+    return 'javascript';
+  }
+
+  // Kod hatalarını kontrol et ve göster
+  checkCodeErrors() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      if (language === 'html') {
+        const validation = validateHTML(code);
+        if (!validation.isValid) {
+          console.warn('HTML Validation Errors:', validation.errors);
+          // Hataları Monaco Editor'da göstermek için markers ekle
+          this.addValidationMarkers(validation.errors);
+        } else {
+          console.log('HTML is valid');
+          this.clearValidationMarkers();
+        }
+      } else if (language === 'sql') {
+        const validation = validateSQL(code);
+        if (!validation.isValid) {
+          console.warn('SQL Validation Errors:', validation.errors);
+          // Hataları Monaco Editor'da göstermek için markers ekle
+          this.addValidationMarkers(validation.errors);
+        } else {
+          console.log('SQL is valid');
+          this.clearValidationMarkers();
+        }
+      }
+    }
+  }
+
+  // Validation markers ekle
+  addValidationMarkers(errors: string[]) {
+    if (window.monaco && this.editor) {
+      const model = this.editor.getModel();
+      if (model) {
+        const markers = errors.map((error, index) => ({
+          message: error,
+          severity: window.monaco.MarkerSeverity.Error,
+          startLineNumber: 1,
+          startColumn: 1,
+          endLineNumber: model.getLineCount(),
+          endColumn: model.getLineMaxColumn(model.getLineCount())
+        }));
+        
+        window.monaco.editor.setModelMarkers(model, 'html-validation', markers);
+      }
+    }
+  }
+
+  // Validation markers'ları temizle
+  clearValidationMarkers() {
+    if (window.monaco && this.editor) {
+      const model = this.editor.getModel();
+      if (model) {
+        window.monaco.editor.setModelMarkers(model, 'html-validation', []);
+      }
+    }
+  }
+
   onThemeChange(event: any) {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       // @ts-ignore
@@ -227,18 +474,15 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
 
   toggleTheme() {
     this.selectedTheme = this.selectedTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
-    if (this.editor) {
-      // @ts-ignore
-      monaco.editor.setTheme(this.selectedTheme);
-    }
-    // Host elemente class ekle
-    const host = this.hostRef.nativeElement;
-    if (this.selectedTheme === 'vs-dark') {
-      this.renderer.removeClass(host, 'light-theme');
-      this.renderer.addClass(host, 'dark-theme');
-    } else {
-      this.renderer.removeClass(host, 'dark-theme');
-      this.renderer.addClass(host, 'light-theme');
+    // Sadece feature fonksiyonunu çağır
+    if (isPlatformBrowser(this.platformId) && window.monaco && this.editor) {
+      applyMonacoTheme({
+        monaco: window.monaco,
+        editor: this.editor,
+        theme: this.selectedTheme,
+        hostElement: this.hostRef.nativeElement,
+        renderer: this.renderer
+      });
     }
   }
 
@@ -255,8 +499,155 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
   saveCode() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       const code = this.editor.getValue();
-      // Burada kodu kaydetme işlemi yapılabilir, örnek olarak console.log
-      console.log('Saved code:', code);
+      // Aktif tab için kaydedilen kodu sakla
+      const tabKey = this.getActiveTabKey();
+      this.lastSavedCodeByTab[tabKey] = code;
+      this.openSaveModal();
+    }
+  }
+
+  closeSaveModal() {
+    this.showSaveModal = false;
+  }
+
+  // Aktif tab için benzersiz anahtar
+  getActiveTabKey(): string {
+    return `${this.activeTab.lang}_${this.activeTab.idx}`;
+  }
+
+  // Tab için orijinal kodu sakla
+  saveOriginalCode(tabKey: string, code: string) {
+    if (!this.originalCodeByTab[tabKey]) {
+      this.originalCodeByTab[tabKey] = code;
+    }
+  }
+
+  // Tab için benzersiz anahtar
+  getTabKey(tab: any): string {
+    return `${tab.lang}_${tab.idx}`;
+  }
+
+  // Diff oluştur
+  generateDiff(original: string, modified: string): { left: string, right: string } {
+    const originalLines = original.split('\n');
+    const modifiedLines = modified.split('\n');
+    
+    let leftLines: string[] = [];
+    let rightLines: string[] = [];
+    
+    // Basit diff algoritması
+    let i = 0, j = 0;
+    while (i < originalLines.length || j < modifiedLines.length) {
+      if (i < originalLines.length && j < modifiedLines.length && originalLines[i] === modifiedLines[j]) {
+        // Aynı satır
+        leftLines.push(` ${originalLines[i]}`);
+        rightLines.push(` ${modifiedLines[j]}`);
+        i++; j++;
+      } else if (j < modifiedLines.length && (i >= originalLines.length || originalLines[i] !== modifiedLines[j])) {
+        // Yeni satır eklendi
+        if (i < originalLines.length) {
+          leftLines.push(`-${originalLines[i]}`);
+          rightLines.push(`+${modifiedLines[j]}`);
+          i++; j++;
+        } else {
+          leftLines.push('');
+          rightLines.push(`+${modifiedLines[j]}`);
+          j++;
+        }
+      } else if (i < originalLines.length) {
+        // Satır silindi
+        leftLines.push(`-${originalLines[i]}`);
+        rightLines.push('');
+        i++;
+      }
+    }
+    
+    return {
+      left: leftLines.join('\n'),
+      right: rightLines.join('\n')
+    };
+  }
+
+  // HTML formatında diff oluştur
+  generateDiffHTML(original: string, modified: string): { left: string, right: string } {
+    const originalLines = original.split('\n');
+    const modifiedLines = modified.split('\n');
+    
+    let leftHTML: string[] = [];
+    let rightHTML: string[] = [];
+    
+    // Basit diff algoritması
+    let i = 0, j = 0;
+    while (i < originalLines.length || j < modifiedLines.length) {
+      if (i < originalLines.length && j < modifiedLines.length && originalLines[i] === modifiedLines[j]) {
+        // Aynı satır
+        leftHTML.push(`<span class="diff-line unchanged"> ${originalLines[i]}</span>`);
+        rightHTML.push(`<span class="diff-line unchanged"> ${modifiedLines[j]}</span>`);
+        i++; j++;
+      } else if (j < modifiedLines.length && (i >= originalLines.length || originalLines[i] !== modifiedLines[j])) {
+        // Yeni satır eklendi
+        if (i < originalLines.length) {
+          leftHTML.push(`<span class="diff-line deleted">-${originalLines[i]}</span>`);
+          rightHTML.push(`<span class="diff-line added">+${modifiedLines[j]}</span>`);
+          i++; j++;
+        } else {
+          leftHTML.push(`<span class="diff-line empty"></span>`);
+          rightHTML.push(`<span class="diff-line added">+${modifiedLines[j]}</span>`);
+          j++;
+        }
+      } else if (i < originalLines.length) {
+        // Satır silindi
+        leftHTML.push(`<span class="diff-line deleted">-${originalLines[i]}</span>`);
+        rightHTML.push(`<span class="diff-line empty"></span>`);
+        i++;
+      }
+    }
+    
+    return {
+      left: leftHTML.join('\n'),
+      right: rightHTML.join('\n')
+    };
+  }
+
+  // Aktif tab için diff al
+  getActiveTabDiff(): { left: string, right: string } {
+    if (this.activeTabForSave >= 0 && this.activeTabForSave < this.openTabs.length) {
+      const tab = this.openTabs[this.activeTabForSave];
+      const tabKey = this.getTabKey(tab);
+      const original = this.originalCodeByTab[tabKey] || tab.code;
+      const modified = tab.code;
+      return this.generateDiff(original, modified);
+    }
+    return { left: '', right: '' };
+  }
+
+  // Aktif tab için HTML diff al
+  getActiveTabDiffHTML(): { left: string, right: string } {
+    if (this.activeTabForSave >= 0 && this.activeTabForSave < this.openTabs.length) {
+      const tab = this.openTabs[this.activeTabForSave];
+      const tabKey = this.getTabKey(tab);
+      const original = this.originalCodeByTab[tabKey] || tab.code;
+      const modified = tab.code;
+      return this.generateDiffHTML(original, modified);
+    }
+    return { left: '', right: '' };
+  }
+
+  // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
+  showDiff() {
+    if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
+      const tabKey = this.getActiveTabKey();
+      const original = this.lastSavedCodeByTab[tabKey] || '';
+      const modified = this.editor.getValue();
+      // Sadece diff fonksiyonunu çağır
+      showMonacoDiff({
+        monaco: window.monaco,
+        editor: this.editor,
+        original,
+        modified,
+        language: 'javascript',
+        theme: this.selectedTheme
+      });
     }
   }
 
@@ -265,13 +656,8 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       try {
         const code = this.editor.getValue();
-        console.log('Prettier input code:', code);
-        const formatted = await prettier.format(code, {
-          parser: 'babel',
-          plugins: [parserBabel, parserEstree],
-          singleQuote: true
-        });
-        console.log('Prettier formatted:', formatted);
+        // Sadece prettier format fonksiyonunu çağır
+        const formatted = await formatWithPrettier(code);
         if (typeof formatted === 'string') {
           const model = this.editor.getModel();
           if (model) {
@@ -290,4 +676,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit {
       }
     }
   }
-} 
+
+  // Revert changes to original script template
+  revertChanges() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      this.editor.setValue(script.code);
+    }
+  }
+}
