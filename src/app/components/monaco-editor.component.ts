@@ -171,6 +171,16 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       name: 'HTML Card',
       description: 'HTML card component.',
       code: `<!DOCTYPE html>\n<html>\n<head>\n  <title>Card</title>\n</head>\n<body>\n  <div class="card">\n    <h3>Card Title</h3>\n    <p>Card content goes here</p>\n    <button>Action</button>\n  </div>\n</body>\n</html>`
+    },
+    {
+      name: 'HTML with Errors',
+      description: 'HTML with intentional errors for testing validation.',
+      code: `<html>\n<head>\n  <title>Test</title>\n</head>\n<body>\n  <div>\n    <h1>Test</h1>\n    <p>This is a test\n    <div>\n      <span>Nested content</div>\n    </div>\n  </div>\n</body>\n</html>`
+    },
+    {
+      name: 'SQL with Errors',
+      description: 'SQL with intentional errors for testing validation.',
+      code: `SELECT * FROM users\nWHERE active = 1\nORDER BY created_at DESC`
     }
   ];
 
@@ -198,6 +208,11 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       const newScriptIndex = changes['selectedScriptIndex'].currentValue;
       const selectedScript = this.scriptTemplates[newScriptIndex];
       if (selectedScript) {
+        const language = this.detectLanguageFromCode(selectedScript.code);
+        const model = this.editor.getModel();
+        if (window.monaco && model) {
+          window.monaco.editor.setModelLanguage(model, language);
+        }
         this.editor.setValue(selectedScript.code);
         console.log('Script changed to:', selectedScript.name);
       }
@@ -258,10 +273,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     const tab = this.openTabs.find(t => t.lang === lang && t.idx === idx);
     if (this.editor && tab) {
       const model = this.editor.getModel();
-      if (lang === 'javascript') {
-        // @ts-ignore
-        window.monaco.editor.setModelLanguage(model, 'javascript');
+      if (window.monaco && model) {
+        window.monaco.editor.setModelLanguage(model, lang);
       }
+      
       this.editor.setValue(tab.code);
     }
   }
@@ -289,6 +304,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     this.tabsByLanguage[lang].push({ name: this.getTabName(lang, idx), code: contextHeader });
     this.selectedTabIndexByLanguage[lang] = idx;
     if (this.editor) {
+      const model = this.editor.getModel();
+      if (model && window.monaco) {
+        window.monaco.editor.setModelLanguage(model, lang);
+      }
       this.editor.setValue(contextHeader);
     }
   }
@@ -311,23 +330,187 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         }
       };
       window.require(['vs/editor/editor.main'], () => {
+        // Monaco Editor dil modüllerini kaydet
+        if (window.monaco) {
+          // HTML dil desteğini kaydet
+          window.monaco.languages.register({ id: 'html' });
+          window.monaco.languages.setMonarchTokensProvider('html', {
+            defaultToken: '',
+            tokenPostfix: '.html',
+            ignoreCase: true,
+            tokenizer: {
+              root: [
+                [/<!DOCTYPE/, 'metatag'],
+                [/<!--/, 'comment', '@comment'],
+                [/(<)((?:[\w\-]+:)?[\w\-]+)(\s*)(\/>)/, ['delimiter', 'tag', '', 'delimiter']],
+                [/(<)(script)/, ['delimiter', { token: 'tag', next: '@script' }]],
+                [/(<)(style)/, ['delimiter', { token: 'tag', next: '@style' }]],
+                [/(<)((?:[\w\-]+:)?[\w\-]+)/, ['delimiter', { token: 'tag', next: '@otherTag' }]],
+                [/(<\/)((?:[\w\-]+:)?[\w\-]+)/, ['delimiter', { token: 'tag', next: '@otherTag' }]],
+                [/</, 'delimiter'],
+                [/[^<]+/, '']
+              ],
+              comment: [
+                [/--/, 'comment'],
+                [/-->/, 'comment', '@pop'],
+                [/[^-]+/, 'comment']
+              ],
+              script: [
+                [/type/, 'attribute.name', '@scriptAfterType'],
+                [/"([^"]*)"/, 'attribute.value'],
+                [/'([^']*)'/, 'attribute.value'],
+                [/[\w\-]+/, 'attribute.name'],
+                [/=/, 'delimiter'],
+                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
+                [/[ \t\r\n]+/],
+                [/(<\/)(script\s*)(>)/, ['delimiter', 'tag', { token: 'delimiter', next: '@pop' }]]
+              ],
+              scriptAfterType: [
+                [/=/, 'delimiter', '@scriptAfterTypeEquals'],
+                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
+                [/[ \t\r\n]+/],
+                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              scriptAfterTypeEquals: [
+                [/"([^"]*)"/, { token: 'attribute.value', switchTo: '@scriptWithCustomType.$1' }],
+                [/'([^']*)'/, { token: 'attribute.value', switchTo: '@scriptWithCustomType.$1' }],
+                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
+                [/[ \t\r\n]+/],
+                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              scriptWithCustomType: [
+                [/>/, { token: 'delimiter', next: '@scriptEmbedded.$S2', nextEmbedded: '$S2' }],
+                [/"([^"]*)"/, 'attribute.value'],
+                [/'([^']*)'/, 'attribute.value'],
+                [/[\w\-]+/, 'attribute.name'],
+                [/=/, 'delimiter'],
+                [/[ \t\r\n]+/],
+                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              scriptEmbedded: [
+                [/<\/script/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
+                [/[^<]+/, '']
+              ],
+              style: [
+                [/type/, 'attribute.name', '@styleAfterType'],
+                [/"([^"]*)"/, 'attribute.value'],
+                [/'([^']*)'/, 'attribute.value'],
+                [/[\w\-]+/, 'attribute.name'],
+                [/=/, 'delimiter'],
+                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
+                [/[ \t\r\n]+/],
+                [/(<\/)(style\s*)(>)/, ['delimiter', 'tag', { token: 'delimiter', next: '@pop' }]]
+              ],
+              styleAfterType: [
+                [/=/, 'delimiter', '@styleAfterTypeEquals'],
+                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
+                [/[ \t\r\n]+/],
+                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              styleAfterTypeEquals: [
+                [/"([^"]*)"/, { token: 'attribute.value', switchTo: '@styleWithCustomType.$1' }],
+                [/'([^']*)'/, { token: 'attribute.value', switchTo: '@styleWithCustomType.$1' }],
+                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
+                [/[ \t\r\n]+/],
+                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              styleWithCustomType: [
+                [/>/, { token: 'delimiter', next: '@styleEmbedded.$S2', nextEmbedded: '$S2' }],
+                [/"([^"]*)"/, 'attribute.value'],
+                [/'([^']*)'/, 'attribute.value'],
+                [/[\w\-]+/, 'attribute.name'],
+                [/=/, 'delimiter'],
+                [/[ \t\r\n]+/],
+                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
+              ],
+              styleEmbedded: [
+                [/<\/style/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
+                [/[^<]+/, '']
+              ],
+              otherTag: [
+                [/\/?>/, 'delimiter', '@pop'],
+                [/"([^"]*)"/, 'attribute.value'],
+                [/'([^']*)'/, 'attribute.value'],
+                [/[\w\-]+/, 'attribute.name'],
+                [/=/, 'delimiter'],
+                [/[ \t\r\n]+/]
+              ]
+            }
+          });
+
+          // SQL dil desteğini kaydet
+          window.monaco.languages.register({ id: 'sql' });
+          window.monaco.languages.setMonarchTokensProvider('sql', {
+            defaultToken: '',
+            tokenPostfix: '.sql',
+            ignoreCase: true,
+            tokenizer: {
+              root: [
+                [/[a-zA-Z_]\w*/, {
+                  cases: {
+                    '@keywords': 'keyword',
+                    '@default': 'identifier'
+                  }
+                }],
+                [/[0-9]+/, 'number'],
+                [/['"`]/, 'string', '@string'],
+                [/--.*$/, 'comment'],
+                [/\/\*/, 'comment', '@comment']
+              ],
+              comment: [
+                [/[^*/]+/, 'comment'],
+                [/\*\//, 'comment', '@pop'],
+                [/./, 'comment']
+              ],
+              string: [
+                [/[^'"]+/, 'string'],
+                [/['"]/, 'string', '@pop']
+              ]
+            },
+            keywords: [
+              'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'TABLE', 'INDEX',
+              'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'ORDER', 'BY', 'GROUP', 'HAVING', 'JOIN',
+              'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'AS', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN'
+            ]
+          });
+        }
+
         // Seçilen script template'ini al
         const selectedScript = this.scriptTemplates[this.selectedScriptIndex];
-        this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
-          value: selectedScript.code,
-          language: 'javascript',
-          theme: this.editorTheme,
-          automaticLayout: true
-        });
-        
-        // Editor içeriği değiştiğinde script template'ini güncelle
-        this.editor.onDidChangeModelContent(() => {
-          this.scriptTemplates[this.selectedScriptIndex].code = this.editor.getValue();
-        });
-        
-        // Sadece intellisense provider fonksiyonunu çağır
-        registerMonacoIntellisense(window.monaco);
-        console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
+        if (selectedScript) {
+          const language = this.detectLanguageFromCode(selectedScript.code);
+          this.editor = window.monaco.editor.create(this.editorContainer.nativeElement, {
+            value: selectedScript.code,
+            language: language,
+            theme: this.editorTheme,
+            automaticLayout: true,
+            // HTML için gelişmiş özellikler
+            ...(language === 'html' && {
+              formatOnPaste: true,
+              formatOnType: true,
+              suggestOnTriggerCharacters: true,
+              quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: true
+              }
+            })
+          });
+          
+          
+          // Editor içeriği değiştiğinde script template'ini güncelle
+          this.editor.onDidChangeModelContent(() => {
+            this.scriptTemplates[this.selectedScriptIndex].code = this.editor.getValue();
+            // Kod hatalarını otomatik kontrol et
+            setTimeout(() => this.checkCodeErrors(), 500);
+          });
+          
+          // Sadece intellisense provider fonksiyonunu çağır
+          registerMonacoIntellisense(window.monaco);
+          console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
+        } else {
+          console.error('Script template not found for index:', this.selectedScriptIndex);
+        }
       });
     } else {
       console.error('Monaco loader.js (window.require) bulunamadı!');
@@ -344,6 +527,189 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     const code = this.tabsByLanguage[lang][0]?.code || '';
     this.openTabs.push({ lang, idx, name, code, language: lang });
     this.selectTabUniversal(lang, idx);
+  }
+
+  // Kod içeriğine göre dil tespit et
+  detectLanguageFromCode(code: string): string {
+    if (code.trim().startsWith('<!DOCTYPE html') || code.includes('<html')) {
+      return 'html';
+    }
+    if (code.toLowerCase().startsWith('select') || code.toLowerCase().includes('from')) {
+      return 'sql';
+    }
+    return 'javascript';
+  }
+
+  // HTML validation fonksiyonu
+  validateHTML(code: string): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    // Basit HTML validation
+    const openTags = code.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g) || [];
+    const closeTags = code.match(/<\/([a-zA-Z][a-zA-Z0-9]*)>/g) || [];
+    
+    const tagStack: string[] = [];
+    const tagPositions: { tag: string; line: number; column: number }[] = [];
+    
+    // Self-closing tags
+    const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'keygen', 'param', 'source', 'track', 'wbr'];
+    
+    // Her satırı kontrol et
+    const lines = code.split('\n');
+    lines.forEach((line, lineIndex) => {
+      const openTagMatches = line.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g);
+      const closeTagMatches = line.match(/<\/([a-zA-Z][a-zA-Z0-9]*)>/g);
+      
+      if (openTagMatches) {
+        openTagMatches.forEach(tag => {
+          const tagName = tag.match(/<([a-zA-Z][a-zA-Z0-9]*)/)?.[1];
+          if (tagName && !selfClosingTags.includes(tagName.toLowerCase())) {
+            tagStack.push(tagName.toLowerCase());
+            tagPositions.push({ tag: tagName.toLowerCase(), line: lineIndex + 1, column: line.indexOf(tag) + 1 });
+          }
+        });
+      }
+      
+      if (closeTagMatches) {
+        closeTagMatches.forEach(tag => {
+          const tagName = tag.match(/<\/([a-zA-Z][a-zA-Z0-9]*)/)?.[1];
+          if (tagName) {
+            const expectedTag = tagStack.pop();
+            if (expectedTag !== tagName.toLowerCase()) {
+              errors.push(`Mismatched tag: expected </${expectedTag}> but found </${tagName}> at line ${lineIndex + 1}`);
+            }
+          }
+        });
+      }
+    });
+    
+    if (tagStack.length > 0) {
+      errors.push(`Unclosed tags: ${tagStack.join(', ')}`);
+    }
+    
+    // DOCTYPE kontrolü
+    if (code.includes('<html') && !code.includes('<!DOCTYPE')) {
+      errors.push('Missing DOCTYPE declaration');
+    }
+    
+    // Kapanmayan tag'ları kontrol et
+    const unclosedPatterns = [
+      { pattern: /<p[^>]*>(?!.*<\/p>)/g, message: 'Unclosed <p> tag' },
+      { pattern: /<div[^>]*>(?!.*<\/div>)/g, message: 'Unclosed <div> tag' },
+      { pattern: /<span[^>]*>(?!.*<\/span>)/g, message: 'Unclosed <span> tag' },
+      { pattern: /<h[1-6][^>]*>(?!.*<\/h[1-6]>)/g, message: 'Unclosed heading tag' }
+    ];
+    
+    unclosedPatterns.forEach(({ pattern, message }) => {
+      if (pattern.test(code)) {
+        errors.push(message);
+      }
+    });
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // SQL validation fonksiyonu
+  validateSQL(code: string): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    // SQL syntax kontrolü
+    const lines = code.split('\n');
+    lines.forEach((line, lineIndex) => {
+      const trimmedLine = line.trim().toLowerCase();
+      
+      // SELECT statement kontrolü
+      if (trimmedLine.startsWith('select') && !trimmedLine.includes('from')) {
+        errors.push(`Missing FROM clause at line ${lineIndex + 1}`);
+      }
+      
+      // INSERT statement kontrolü
+      if (trimmedLine.startsWith('insert') && !trimmedLine.includes('values')) {
+        errors.push(`Missing VALUES clause at line ${lineIndex + 1}`);
+      }
+      
+      // UPDATE statement kontrolü
+      if (trimmedLine.startsWith('update') && !trimmedLine.includes('set')) {
+        errors.push(`Missing SET clause at line ${lineIndex + 1}`);
+      }
+      
+      // DELETE statement kontrolü
+      if (trimmedLine.startsWith('delete') && !trimmedLine.includes('from')) {
+        errors.push(`Missing FROM clause at line ${lineIndex + 1}`);
+      }
+      
+      // WHERE clause kontrolü
+      if (trimmedLine.includes('where') && !trimmedLine.includes('=') && !trimmedLine.includes('like') && !trimmedLine.includes('in')) {
+        errors.push(`Incomplete WHERE clause at line ${lineIndex + 1}`);
+      }
+    });
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // Kod hatalarını kontrol et ve göster
+  checkCodeErrors() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      if (language === 'html') {
+        const validation = this.validateHTML(code);
+        if (!validation.isValid) {
+          console.warn('HTML Validation Errors:', validation.errors);
+          // Hataları Monaco Editor'da göstermek için markers ekle
+          this.addValidationMarkers(validation.errors);
+        } else {
+          console.log('HTML is valid');
+          this.clearValidationMarkers();
+        }
+      } else if (language === 'sql') {
+        const validation = this.validateSQL(code);
+        if (!validation.isValid) {
+          console.warn('SQL Validation Errors:', validation.errors);
+          // Hataları Monaco Editor'da göstermek için markers ekle
+          this.addValidationMarkers(validation.errors);
+        } else {
+          console.log('SQL is valid');
+          this.clearValidationMarkers();
+        }
+      }
+    }
+  }
+
+  // Validation markers ekle
+  addValidationMarkers(errors: string[]) {
+    if (window.monaco && this.editor) {
+      const model = this.editor.getModel();
+      if (model) {
+        const markers = errors.map((error, index) => ({
+          message: error,
+          severity: window.monaco.MarkerSeverity.Error,
+          startLineNumber: 1,
+          startColumn: 1,
+          endLineNumber: model.getLineCount(),
+          endColumn: model.getLineMaxColumn(model.getLineCount())
+        }));
+        
+        window.monaco.editor.setModelMarkers(model, 'html-validation', markers);
+      }
+    }
+  }
+
+  // Validation markers'ları temizle
+  clearValidationMarkers() {
+    if (window.monaco && this.editor) {
+      const model = this.editor.getModel();
+      if (model) {
+        window.monaco.editor.setModelMarkers(model, 'html-validation', []);
+      }
+    }
   }
 
   onThemeChange(event: any) {
@@ -565,4 +931,4 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.editor.setValue(script.code);
     }
   }
-} 
+}
