@@ -396,6 +396,30 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             setTimeout(() => this.checkCodeErrors(), 500);
           });
           
+          // Context menu ekle
+          this.editor.addAction({
+            id: 'format-document',
+            label: 'Format Document',
+            keybindings: [
+              window.monaco.KeyMod.Alt | window.monaco.KeyCode.KeyF
+            ],
+            contextMenuGroupId: '1_modification',
+            contextMenuOrder: 1.5,
+            run: async (ed: any) => {
+              await this.formatCode();
+            }
+          });
+          
+          this.editor.addAction({
+            id: 'open-in-live-server',
+            label: 'Open in Live Server',
+            contextMenuGroupId: '9_cutcopypaste',
+            contextMenuOrder: 1.5,
+            run: (ed: any) => {
+              this.openInLiveServer();
+            }
+          });
+          
           // Sadece intellisense provider fonksiyonunu çağır
           registerMonacoIntellisense(window.monaco);
           console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
@@ -686,13 +710,20 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       try {
         const code = this.editor.getValue();
+        const language = this.detectLanguageFromCode(code);
+        
+        // Formatlama sırasında validation'ı geçici olarak devre dışı bırak
+        this.clearValidationMarkers();
+        
         // Sadece prettier format fonksiyonunu çağır
-        const formatted = await formatWithPrettier(code);
+        const formatted = await formatWithPrettier(code, language);
         if (typeof formatted === 'string') {
           const model = this.editor.getModel();
           if (model) {
             setTimeout(() => {
               this.editor.setValue(formatted);
+              // Formatlama sonrası validation'ı tekrar etkinleştir
+              setTimeout(() => this.checkCodeErrors(), 1000);
             }, 0);
           } else {
             alert('Monaco Editor modeli bulunamadı!');
@@ -712,6 +743,27 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       const script = this.scriptTemplates[this.selectedScriptIndex];
       this.editor.setValue(script.code);
+    }
+  }
+
+  // Open in Live Server functionality
+  openInLiveServer() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      if (language === 'html') {
+        // HTML içeriğini blob olarak oluştur
+        const blob = new Blob([code], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        
+        // Yeni sekmede aç
+        window.open(url, '_blank');
+        
+        console.log('HTML opened in new tab');
+      } else {
+        alert('Live Server sadece HTML dosyaları için kullanılabilir!');
+      }
     }
   }
 }

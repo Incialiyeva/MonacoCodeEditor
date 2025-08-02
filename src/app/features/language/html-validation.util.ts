@@ -59,24 +59,10 @@ export function validateHTML(code: string): ValidationResult {
     errors.push(`Unclosed tags: ${tagStack.join(', ')}`);
   }
   
-  // DOCTYPE kontrolü
-  if (code.includes('<html') && !code.includes('<!DOCTYPE')) {
+  // DOCTYPE kontrolü - sadece tam HTML dokümanları için (case-insensitive)
+  if (code.includes('<html') && code.includes('</html>') && !code.toLowerCase().includes('<!doctype')) {
     errors.push('Missing DOCTYPE declaration');
   }
-  
-  // Kapanmayan tag'ları kontrol et
-  const unclosedPatterns = [
-    { pattern: /<p[^>]*>(?!.*<\/p>)/g, message: 'Unclosed <p> tag' },
-    { pattern: /<div[^>]*>(?!.*<\/div>)/g, message: 'Unclosed <div> tag' },
-    { pattern: /<span[^>]*>(?!.*<\/span>)/g, message: 'Unclosed <span> tag' },
-    { pattern: /<h[1-6][^>]*>(?!.*<\/h[1-6]>)/g, message: 'Unclosed heading tag' }
-  ];
-  
-  unclosedPatterns.forEach(({ pattern, message }) => {
-    if (pattern.test(code)) {
-      errors.push(message);
-    }
-  });
   
   return {
     isValid: errors.length === 0,
