@@ -11,6 +11,10 @@ import { registerMonacoIntellisense } from '../features/intellisense/monaco-inte
 import { formatWithPrettier } from '../features/prettier/prettier-format.util';
 import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
+import { registerHTMLLanguage } from '../features/language/html-language.provider';
+import { registerSQLLanguage } from '../features/language/sql-language.provider';
+import { validateHTML } from '../features/language/html-validation.util';
+import { validateSQL } from '../features/language/sql-validation.util';
 
 interface EditorTab {
   name: string;
@@ -332,147 +336,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       window.require(['vs/editor/editor.main'], () => {
         // Monaco Editor dil modüllerini kaydet
         if (window.monaco) {
-          // HTML dil desteğini kaydet
-          window.monaco.languages.register({ id: 'html' });
-          window.monaco.languages.setMonarchTokensProvider('html', {
-            defaultToken: '',
-            tokenPostfix: '.html',
-            ignoreCase: true,
-            tokenizer: {
-              root: [
-                [/<!DOCTYPE/, 'metatag'],
-                [/<!--/, 'comment', '@comment'],
-                [/(<)((?:[\w\-]+:)?[\w\-]+)(\s*)(\/>)/, ['delimiter', 'tag', '', 'delimiter']],
-                [/(<)(script)/, ['delimiter', { token: 'tag', next: '@script' }]],
-                [/(<)(style)/, ['delimiter', { token: 'tag', next: '@style' }]],
-                [/(<)((?:[\w\-]+:)?[\w\-]+)/, ['delimiter', { token: 'tag', next: '@otherTag' }]],
-                [/(<\/)((?:[\w\-]+:)?[\w\-]+)/, ['delimiter', { token: 'tag', next: '@otherTag' }]],
-                [/</, 'delimiter'],
-                [/[^<]+/, '']
-              ],
-              comment: [
-                [/--/, 'comment'],
-                [/-->/, 'comment', '@pop'],
-                [/[^-]+/, 'comment']
-              ],
-              script: [
-                [/type/, 'attribute.name', '@scriptAfterType'],
-                [/"([^"]*)"/, 'attribute.value'],
-                [/'([^']*)'/, 'attribute.value'],
-                [/[\w\-]+/, 'attribute.name'],
-                [/=/, 'delimiter'],
-                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
-                [/[ \t\r\n]+/],
-                [/(<\/)(script\s*)(>)/, ['delimiter', 'tag', { token: 'delimiter', next: '@pop' }]]
-              ],
-              scriptAfterType: [
-                [/=/, 'delimiter', '@scriptAfterTypeEquals'],
-                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
-                [/[ \t\r\n]+/],
-                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              scriptAfterTypeEquals: [
-                [/"([^"]*)"/, { token: 'attribute.value', switchTo: '@scriptWithCustomType.$1' }],
-                [/'([^']*)'/, { token: 'attribute.value', switchTo: '@scriptWithCustomType.$1' }],
-                [/>/, { token: 'delimiter', next: '@scriptEmbedded', nextEmbedded: 'text/javascript' }],
-                [/[ \t\r\n]+/],
-                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              scriptWithCustomType: [
-                [/>/, { token: 'delimiter', next: '@scriptEmbedded.$S2', nextEmbedded: '$S2' }],
-                [/"([^"]*)"/, 'attribute.value'],
-                [/'([^']*)'/, 'attribute.value'],
-                [/[\w\-]+/, 'attribute.name'],
-                [/=/, 'delimiter'],
-                [/[ \t\r\n]+/],
-                [/<\/script\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              scriptEmbedded: [
-                [/<\/script/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
-                [/[^<]+/, '']
-              ],
-              style: [
-                [/type/, 'attribute.name', '@styleAfterType'],
-                [/"([^"]*)"/, 'attribute.value'],
-                [/'([^']*)'/, 'attribute.value'],
-                [/[\w\-]+/, 'attribute.name'],
-                [/=/, 'delimiter'],
-                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
-                [/[ \t\r\n]+/],
-                [/(<\/)(style\s*)(>)/, ['delimiter', 'tag', { token: 'delimiter', next: '@pop' }]]
-              ],
-              styleAfterType: [
-                [/=/, 'delimiter', '@styleAfterTypeEquals'],
-                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
-                [/[ \t\r\n]+/],
-                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              styleAfterTypeEquals: [
-                [/"([^"]*)"/, { token: 'attribute.value', switchTo: '@styleWithCustomType.$1' }],
-                [/'([^']*)'/, { token: 'attribute.value', switchTo: '@styleWithCustomType.$1' }],
-                [/>/, { token: 'delimiter', next: '@styleEmbedded', nextEmbedded: 'text/css' }],
-                [/[ \t\r\n]+/],
-                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              styleWithCustomType: [
-                [/>/, { token: 'delimiter', next: '@styleEmbedded.$S2', nextEmbedded: '$S2' }],
-                [/"([^"]*)"/, 'attribute.value'],
-                [/'([^']*)'/, 'attribute.value'],
-                [/[\w\-]+/, 'attribute.name'],
-                [/=/, 'delimiter'],
-                [/[ \t\r\n]+/],
-                [/<\/style\s*>/, { token: '@rematch', next: '@pop' }]
-              ],
-              styleEmbedded: [
-                [/<\/style/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
-                [/[^<]+/, '']
-              ],
-              otherTag: [
-                [/\/?>/, 'delimiter', '@pop'],
-                [/"([^"]*)"/, 'attribute.value'],
-                [/'([^']*)'/, 'attribute.value'],
-                [/[\w\-]+/, 'attribute.name'],
-                [/=/, 'delimiter'],
-                [/[ \t\r\n]+/]
-              ]
-            }
-          });
-
-          // SQL dil desteğini kaydet
-          window.monaco.languages.register({ id: 'sql' });
-          window.monaco.languages.setMonarchTokensProvider('sql', {
-            defaultToken: '',
-            tokenPostfix: '.sql',
-            ignoreCase: true,
-            tokenizer: {
-              root: [
-                [/[a-zA-Z_]\w*/, {
-                  cases: {
-                    '@keywords': 'keyword',
-                    '@default': 'identifier'
-                  }
-                }],
-                [/[0-9]+/, 'number'],
-                [/['"`]/, 'string', '@string'],
-                [/--.*$/, 'comment'],
-                [/\/\*/, 'comment', '@comment']
-              ],
-              comment: [
-                [/[^*/]+/, 'comment'],
-                [/\*\//, 'comment', '@pop'],
-                [/./, 'comment']
-              ],
-              string: [
-                [/[^'"]+/, 'string'],
-                [/['"]/, 'string', '@pop']
-              ]
-            },
-            keywords: [
-              'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'TABLE', 'INDEX',
-              'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'ORDER', 'BY', 'GROUP', 'HAVING', 'JOIN',
-              'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'AS', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN'
-            ]
-          });
+          // HTML ve SQL dil desteğini kaydet
+          registerHTMLLanguage(window.monaco);
+          registerSQLLanguage(window.monaco);
         }
 
         // Seçilen script template'ini al
@@ -540,119 +406,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     return 'javascript';
   }
 
-  // HTML validation fonksiyonu
-  validateHTML(code: string): { isValid: boolean; errors: string[] } {
-    const errors: string[] = [];
-    
-    // Basit HTML validation
-    const openTags = code.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g) || [];
-    const closeTags = code.match(/<\/([a-zA-Z][a-zA-Z0-9]*)>/g) || [];
-    
-    const tagStack: string[] = [];
-    const tagPositions: { tag: string; line: number; column: number }[] = [];
-    
-    // Self-closing tags
-    const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'keygen', 'param', 'source', 'track', 'wbr'];
-    
-    // Her satırı kontrol et
-    const lines = code.split('\n');
-    lines.forEach((line, lineIndex) => {
-      const openTagMatches = line.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g);
-      const closeTagMatches = line.match(/<\/([a-zA-Z][a-zA-Z0-9]*)>/g);
-      
-      if (openTagMatches) {
-        openTagMatches.forEach(tag => {
-          const tagName = tag.match(/<([a-zA-Z][a-zA-Z0-9]*)/)?.[1];
-          if (tagName && !selfClosingTags.includes(tagName.toLowerCase())) {
-            tagStack.push(tagName.toLowerCase());
-            tagPositions.push({ tag: tagName.toLowerCase(), line: lineIndex + 1, column: line.indexOf(tag) + 1 });
-          }
-        });
-      }
-      
-      if (closeTagMatches) {
-        closeTagMatches.forEach(tag => {
-          const tagName = tag.match(/<\/([a-zA-Z][a-zA-Z0-9]*)/)?.[1];
-          if (tagName) {
-            const expectedTag = tagStack.pop();
-            if (expectedTag !== tagName.toLowerCase()) {
-              errors.push(`Mismatched tag: expected </${expectedTag}> but found </${tagName}> at line ${lineIndex + 1}`);
-            }
-          }
-        });
-      }
-    });
-    
-    if (tagStack.length > 0) {
-      errors.push(`Unclosed tags: ${tagStack.join(', ')}`);
-    }
-    
-    // DOCTYPE kontrolü
-    if (code.includes('<html') && !code.includes('<!DOCTYPE')) {
-      errors.push('Missing DOCTYPE declaration');
-    }
-    
-    // Kapanmayan tag'ları kontrol et
-    const unclosedPatterns = [
-      { pattern: /<p[^>]*>(?!.*<\/p>)/g, message: 'Unclosed <p> tag' },
-      { pattern: /<div[^>]*>(?!.*<\/div>)/g, message: 'Unclosed <div> tag' },
-      { pattern: /<span[^>]*>(?!.*<\/span>)/g, message: 'Unclosed <span> tag' },
-      { pattern: /<h[1-6][^>]*>(?!.*<\/h[1-6]>)/g, message: 'Unclosed heading tag' }
-    ];
-    
-    unclosedPatterns.forEach(({ pattern, message }) => {
-      if (pattern.test(code)) {
-        errors.push(message);
-      }
-    });
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  // SQL validation fonksiyonu
-  validateSQL(code: string): { isValid: boolean; errors: string[] } {
-    const errors: string[] = [];
-    
-    // SQL syntax kontrolü
-    const lines = code.split('\n');
-    lines.forEach((line, lineIndex) => {
-      const trimmedLine = line.trim().toLowerCase();
-      
-      // SELECT statement kontrolü
-      if (trimmedLine.startsWith('select') && !trimmedLine.includes('from')) {
-        errors.push(`Missing FROM clause at line ${lineIndex + 1}`);
-      }
-      
-      // INSERT statement kontrolü
-      if (trimmedLine.startsWith('insert') && !trimmedLine.includes('values')) {
-        errors.push(`Missing VALUES clause at line ${lineIndex + 1}`);
-      }
-      
-      // UPDATE statement kontrolü
-      if (trimmedLine.startsWith('update') && !trimmedLine.includes('set')) {
-        errors.push(`Missing SET clause at line ${lineIndex + 1}`);
-      }
-      
-      // DELETE statement kontrolü
-      if (trimmedLine.startsWith('delete') && !trimmedLine.includes('from')) {
-        errors.push(`Missing FROM clause at line ${lineIndex + 1}`);
-      }
-      
-      // WHERE clause kontrolü
-      if (trimmedLine.includes('where') && !trimmedLine.includes('=') && !trimmedLine.includes('like') && !trimmedLine.includes('in')) {
-        errors.push(`Incomplete WHERE clause at line ${lineIndex + 1}`);
-      }
-    });
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
   // Kod hatalarını kontrol et ve göster
   checkCodeErrors() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
@@ -660,7 +413,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       const language = this.detectLanguageFromCode(code);
       
       if (language === 'html') {
-        const validation = this.validateHTML(code);
+        const validation = validateHTML(code);
         if (!validation.isValid) {
           console.warn('HTML Validation Errors:', validation.errors);
           // Hataları Monaco Editor'da göstermek için markers ekle
@@ -670,7 +423,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           this.clearValidationMarkers();
         }
       } else if (language === 'sql') {
-        const validation = this.validateSQL(code);
+        const validation = validateSQL(code);
         if (!validation.isValid) {
           console.warn('SQL Validation Errors:', validation.errors);
           // Hataları Monaco Editor'da göstermek için markers ekle
