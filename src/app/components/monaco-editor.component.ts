@@ -7,7 +7,7 @@ import * as parserBabel from 'prettier/plugins/babel';
 import * as parserEstree from 'prettier/plugins/estree';
 
 // Yeni feature importları
-import { registerMonacoIntellisense } from '../features/intellisense/monaco-intellisense.provider';
+import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../features/intellisense/monaco-intellisense.provider';
 import { formatWithPrettier } from '../features/prettier/prettier-format.util';
 import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
@@ -41,6 +41,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @Input() selectedScriptIndex: number = 0;
   @Input() editorTheme: string = 'vs-dark';
   editor: any;
+  intelliSenseProvider: MonacoIntelliSenseProvider | null = null;
 
   languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
@@ -364,6 +365,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           // HTML ve SQL dil desteğini kaydet
           registerHTMLLanguage(window.monaco);
           registerSQLLanguage(window.monaco);
+          
+          // IntelliSense provider'ı başlat
+          this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
         }
 
         // Seçilen script template'ini al
@@ -375,17 +379,42 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             language: language,
             theme: this.editorTheme,
             automaticLayout: true,
-            // HTML için gelişmiş özellikler
-            ...(language === 'html' && {
-              formatOnPaste: true,
-              formatOnType: true,
-              suggestOnTriggerCharacters: true,
-              quickSuggestions: {
-                other: true,
-                comments: false,
-                strings: true
+            // Gelişmiş IntelliSense ayarları
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+              other: true,
+              comments: true,
+              strings: true
+            },
+            acceptSuggestionOnCommitCharacter: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: true,
+            parameterHints: {
+              enabled: true
+            },
+            suggest: {
+              localityBonus: true,
+              snippetsPreventQuickSuggestions: false,
+              showIcons: true,
+              maxVisibleSuggestions: 12,
+              insertMode: 'replace'
+            },
+            // TypeScript/JavaScript için özel ayarlar
+            typescript: {
+              suggest: {
+                includeCompletionsForModuleExports: true,
+                includeCompletionsWithSnippetText: true,
+                includeCompletionsWithInsertText: true
               }
-            })
+            },
+            javascript: {
+              suggest: {
+                includeCompletionsForModuleExports: true,
+                includeCompletionsWithSnippetText: true,
+                includeCompletionsWithInsertText: true
+              }
+            }
           });
           
           
@@ -420,8 +449,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             }
           });
           
-          // Sadece intellisense provider fonksiyonunu çağır
-          registerMonacoIntellisense(window.monaco);
           console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
         } else {
           console.error('Script template not found for index:', this.selectedScriptIndex);
@@ -768,5 +795,61 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         alert('Live Server sadece HTML dosyaları için kullanılabilir!');
       }
     }
+  }
+
+  // IntelliSense Provider erişim metodları
+  addCustomLib(content: string, targetFileSrc: string): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.addLib({ content, targetFileSrc });
+      this.intelliSenseProvider.loadLib(targetFileSrc);
+    }
+  }
+
+  removeCustomLib(targetFileSrc: string): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.removeLib(targetFileSrc);
+    }
+  }
+
+  getLoadedLibs(): string[] {
+    if (this.intelliSenseProvider) {
+      return this.intelliSenseProvider.getLoadedLibs();
+    }
+    return [];
+  }
+
+  getAllLibs(): any[] {
+    if (this.intelliSenseProvider) {
+      return this.intelliSenseProvider.getAllLibs();
+    }
+    return [];
+  }
+
+  clearAllLibs(): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.clearAllLibs();
+    }
+  }
+
+  // Types Manager erişim metodları
+  loadTypesModules(modules: string[]): void {
+    console.log('loadTypesModules is deprecated, use addCustomLib instead');
+  }
+
+  loadOnlyTypesModules(modules: string[]): void {
+    console.log('loadOnlyTypesModules is deprecated, use addCustomLib instead');
+  }
+
+  getLoadedTypesModules(): string[] {
+    return this.getLoadedLibs();
+  }
+
+  addCustomType(content: string, filename: string): void {
+    this.addCustomLib(content, filename);
+  }
+
+  removeCustomType(filename: string): void {
+    // This method is for backward compatibility
+    console.log('removeCustomType is deprecated, use removeCustomLib instead');
   }
 }
