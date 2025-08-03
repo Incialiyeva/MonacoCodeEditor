@@ -81,6 +81,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Diff için orijinal kodları sakla
   originalCodeByTab: Record<string, string> = {};
 
+  // Download menu için
+  showDownloadMenu = false;
+
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
     this.chooseAllForSave = true;
@@ -851,5 +854,132 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   removeCustomType(filename: string): void {
     // This method is for backward compatibility
     console.log('removeCustomType is deprecated, use removeCustomLib instead');
+  }
+
+  // Download menu toggle
+  toggleDownloadMenu() {
+    this.showDownloadMenu = !this.showDownloadMenu;
+  }
+
+  // Close download menu
+  closeDownloadMenu() {
+    this.showDownloadMenu = false;
+  }
+
+  // Download file with appropriate extension
+  downloadFile() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      
+      // Get file extension based on language
+      let extension = 'js';
+      let mimeType = 'text/javascript';
+      
+      switch (language) {
+        case 'html':
+          extension = 'html';
+          mimeType = 'text/html';
+          break;
+        case 'sql':
+          extension = 'sql';
+          mimeType = 'text/sql';
+          break;
+        case 'javascript':
+        default:
+          extension = 'js';
+          mimeType = 'text/javascript';
+          break;
+      }
+      
+      // Create filename with script name
+      const filename = `${script.name.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
+      
+      // Create blob and download
+      const blob = new Blob([code], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`File downloaded: ${filename}`);
+      this.showDownloadMenu = false;
+    }
+  }
+
+  // Download all open tabs as ZIP
+  downloadAsZip() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      // Import JSZip dynamically
+      import('jszip').then((JSZip) => {
+        const zip = new JSZip.default();
+        
+        // Add current editor content
+        const code = this.editor.getValue();
+        const language = this.detectLanguageFromCode(code);
+        const script = this.scriptTemplates[this.selectedScriptIndex];
+        
+        let extension = 'js';
+        switch (language) {
+          case 'html':
+            extension = 'html';
+            break;
+          case 'sql':
+            extension = 'sql';
+            break;
+          case 'javascript':
+          default:
+            extension = 'js';
+            break;
+        }
+        
+        const filename = `${script.name.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
+        zip.file(filename, code);
+        
+        // Add all open tabs
+        this.openTabs.forEach((tab, index) => {
+          const tabLanguage = this.detectLanguageFromCode(tab.code);
+          let tabExtension = 'js';
+          switch (tabLanguage) {
+            case 'html':
+              tabExtension = 'html';
+              break;
+            case 'sql':
+              tabExtension = 'sql';
+              break;
+            case 'javascript':
+            default:
+              tabExtension = 'js';
+              break;
+          }
+          
+          const tabFilename = `${tab.name.replace(/[^a-zA-Z0-9]/g, '_')}.${tabExtension}`;
+          zip.file(tabFilename, tab.code);
+        });
+        
+        // Generate and download ZIP
+        zip.generateAsync({ type: 'blob' }).then((content: Blob) => {
+          const url = window.URL.createObjectURL(content);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'monaco_editor_files.zip';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('ZIP file downloaded: monaco_editor_files.zip');
+          this.showDownloadMenu = false;
+        });
+      }).catch((error) => {
+        console.error('Error creating ZIP:', error);
+        alert('ZIP oluşturulurken hata oluştu. Lütfen tekrar deneyin.');
+      });
+    }
   }
 }
