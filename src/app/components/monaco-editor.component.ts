@@ -752,6 +752,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       const code = this.editor.getValue();
       const language = this.detectLanguageFromCode(code);
       
+      console.log('Detected language:', language);
+      console.log('Code preview:', code.substring(0, 100));
+      
       if (language === 'html') {
         // HTML içeriğini blob olarak oluştur
         const blob = new Blob([code], { type: 'text/html' });
