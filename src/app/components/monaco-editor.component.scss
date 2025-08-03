@@ -296,10 +296,27 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateX(100px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
 .save-modal-box {
   min-width: 450px;
   max-width: 98vw;
   padding: 2.5rem 3rem 2rem 3rem;
+}
+
+.save-confirmation-modal {
+  min-width: 400px;
+  max-width: 500px;
+  padding: 2rem;
 }
 
 .modal-title {
@@ -308,6 +325,18 @@
   margin-bottom: 1rem;
   color: #e6e6e6;
   letter-spacing: -0.01em;
+}
+
+.modal-content {
+  margin: 1.5rem 0;
+  color: #bfc7d5;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.modal-content p {
+  margin: 0;
+  text-align: center;
 }
 
 .choose-all-row {

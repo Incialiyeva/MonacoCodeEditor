@@ -61,7 +61,7 @@
     <button class="dialog-btn cancel-btn" (click)="revertChanges()" title="Cancel">
       Cancel
     </button>
-    <button class="dialog-btn save-btn" (click)="showDiff()" title="Save">
+    <button class="dialog-btn save-btn" (click)="saveCode()" title="Save">
       Save
     </button>
   </div>
@@ -72,6 +72,20 @@
        accept=".js,.html,.sql,.txt,.jsx,.ts,.tsx,.vue,.php,.py,.java,.cpp,.c,.cs,.rb,.go,.rs,.swift,.kt,.scala,.r,.m,.pl,.sh,.bat,.ps1,.yml,.yaml,.json,.xml,.css,.scss,.sass,.less,.md,.markdown"
        style="display: none;"
        (change)="onFileSelected($event)">
+
+<!-- Save Confirmation Modal -->
+<div *ngIf="showSaveConfirmation" class="modal-overlay">
+  <div class="modal-box save-confirmation-modal">
+    <div class="modal-title">Save Changes?</div>
+    <div class="modal-content">
+      <p>You have unsaved changes. Do you want to save them?</p>
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn modern-btn save-btn" (click)="confirmSave()">Yes, Save</button>
+      <button class="toolbar-btn modern-btn" (click)="cancelSave()">No, Discard</button>
+    </div>
+  </div>
+</div>
 
 <div *ngIf="showSaveModal" class="modal-overlay">
   <div class="modal-box save-modal-box github-style-modal">

@@ -85,6 +85,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Download menu için
   showDownloadMenu = false;
 
+  // Save confirmation modal için
+  showSaveConfirmation = false;
+
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
     this.chooseAllForSave = true;
@@ -248,6 +251,14 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           window.monaco.editor.setModelLanguage(model, language);
         }
         this.editor.setValue(selectedScript.code);
+        
+        // Initialize saved code for this script if not already saved
+        const scriptKey = `script_${newScriptIndex}`;
+        if (!this.lastSavedCodeByTab[scriptKey]) {
+          this.lastSavedCodeByTab[scriptKey] = selectedScript.code;
+          this.originalCodeByTab[scriptKey] = selectedScript.code;
+        }
+        
         console.log('Script changed to:', selectedScript.name);
       }
     }
@@ -429,6 +440,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             setTimeout(() => this.checkCodeErrors(), 500);
           });
           
+          // Initialize saved codes for all scripts
+          this.initializeSavedCodes();
+          
           // Context menu ekle
           this.editor.addAction({
             id: 'format-document',
@@ -572,12 +586,134 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   saveCode() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
-      const code = this.editor.getValue();
-      // Aktif tab için kaydedilen kodu sakla
-      const tabKey = this.getActiveTabKey();
-      this.lastSavedCodeByTab[tabKey] = code;
-      this.openSaveModal();
+      // Show diff view first, let user review changes
+      this.showDiffForSave();
     }
+  }
+
+  // Show diff view for save confirmation
+  showDiffForSave() {
+    if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const original = this.lastSavedCodeByTab[scriptKey] || script.code;
+      const modified = this.editor.getValue();
+      
+      // Detect language for diff
+      const language = this.detectLanguageFromCode(modified);
+      
+      console.log('Showing diff for save confirmation');
+      console.log('Original (saved):', original.substring(0, 100) + '...');
+      console.log('Modified (current):', modified.substring(0, 100) + '...');
+      
+      // Show Monaco diff with save confirmation
+      showMonacoDiff({
+        monaco: window.monaco,
+        editor: this.editor,
+        original,
+        modified,
+        language,
+        theme: this.selectedTheme
+      });
+      
+      // Show save confirmation modal after diff
+      setTimeout(() => {
+        this.showSaveConfirmationModal();
+      }, 1000);
+    }
+  }
+
+  // Confirm save after user reviews diff
+  confirmSave() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      
+      // Save the current code to the script template
+      script.code = code;
+      
+      // Store the saved code for diff comparison
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      this.lastSavedCodeByTab[scriptKey] = code;
+      
+      // Also store in original code for diff
+      this.originalCodeByTab[scriptKey] = code;
+      
+      console.log('Code saved successfully after diff confirmation:', script.name);
+      
+      // Show success message
+      this.showSaveSuccessMessage();
+      
+      // Close the modal
+      this.showSaveConfirmation = false;
+    }
+  }
+
+  // Cancel save after diff review
+  cancelSave() {
+    console.log('Save cancelled by user');
+    // Close the modal
+    this.showSaveConfirmation = false;
+    // Optionally show a message that save was cancelled
+    this.showCancelMessage();
+  }
+
+  // Show cancel message
+  showCancelMessage() {
+    const message = document.createElement('div');
+    message.textContent = 'Save cancelled';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff6b6b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
+  }
+
+  // Show save success message
+  showSaveSuccessMessage() {
+    // Create a temporary success message
+    const message = document.createElement('div');
+    message.textContent = 'Code saved successfully!';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #3fb950;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(63, 185, 80, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
   }
 
   closeSaveModal() {
@@ -710,16 +846,27 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
   showDiff() {
     if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
-      const tabKey = this.getActiveTabKey();
-      const original = this.lastSavedCodeByTab[tabKey] || '';
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const original = this.lastSavedCodeByTab[scriptKey] || script.code;
       const modified = this.editor.getValue();
-      // Sadece diff fonksiyonunu çağır
+      
+      // Detect language for diff
+      const language = this.detectLanguageFromCode(modified);
+      
+      console.log('Showing diff between saved and current version');
+      console.log('Original (saved):', original.substring(0, 100) + '...');
+      console.log('Modified (current):', modified.substring(0, 100) + '...');
+      
+      // Always show Monaco diff, even if files are identical
       showMonacoDiff({
         monaco: window.monaco,
         editor: this.editor,
         original,
         modified,
-        language: 'javascript',
+        language,
         theme: this.selectedTheme
       });
     }
@@ -762,8 +909,49 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   revertChanges() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       const script = this.scriptTemplates[this.selectedScriptIndex];
-      this.editor.setValue(script.code);
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const savedCode = this.lastSavedCodeByTab[scriptKey] || script.code;
+      
+      // Revert to the saved version
+      this.editor.setValue(savedCode);
+      
+      // Update the script template to match
+      script.code = savedCode;
+      
+      console.log('Changes reverted to last saved version');
+      
+      // Show a brief revert message
+      this.showRevertMessage();
     }
+  }
+
+  // Show revert message
+  showRevertMessage() {
+    const message = document.createElement('div');
+    message.textContent = 'Changes reverted!';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ffb300;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(255, 179, 0, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
   }
 
   // Open in Live Server functionality
@@ -1139,5 +1327,19 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         alert('ZIP oluşturulurken hata oluştu. Lütfen tekrar deneyin.');
       });
     }
+  }
+
+  // Initialize saved codes for all scripts
+  initializeSavedCodes() {
+    this.scriptTemplates.forEach((script, index) => {
+      const scriptKey = `script_${index}`;
+      this.lastSavedCodeByTab[scriptKey] = script.code;
+      this.originalCodeByTab[scriptKey] = script.code;
+    });
+  }
+
+  // Show save confirmation modal
+  showSaveConfirmationModal() {
+    this.showSaveConfirmation = true;
   }
 }
