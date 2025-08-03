@@ -129,6 +129,7 @@
 
 .menu-container {
   position: relative;
+  display: inline-block;
 }
 
 .download-menu {
@@ -141,7 +142,7 @@
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   min-width: 200px;
-  z-index: 1000;
+  z-index: 9999;
   animation: menu-fade-in 0.2s ease;
   backdrop-filter: blur(12px);
   padding: 0.5rem 0;

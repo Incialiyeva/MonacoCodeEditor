@@ -38,6 +38,7 @@ declare global {
 })
 export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('fileInput', { static: false }) fileInput!: ElementRef<HTMLInputElement>;
   @Input() selectedScriptIndex: number = 0;
   @Input() editorTheme: string = 'vs-dark';
   editor: any;
@@ -474,17 +475,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     this.selectTabUniversal(lang, idx);
   }
 
-  // Kod içeriğine göre dil tespit et
-  detectLanguageFromCode(code: string): string {
-    if (code.trim().startsWith('<!DOCTYPE html') || code.includes('<html')) {
-      return 'html';
-    }
-    if (code.toLowerCase().startsWith('select') || code.toLowerCase().includes('from')) {
-      return 'sql';
-    }
-    return 'javascript';
-  }
-
   // Kod hatalarını kontrol et ve göster
   checkCodeErrors() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
@@ -834,6 +824,172 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     }
   }
 
+  // File upload functionality
+  triggerFileUpload() {
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.click();
+    }
+    this.showDownloadMenu = false;
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.loadFileIntoEditor(file);
+    }
+    // Reset file input
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+  }
+
+  loadFileIntoEditor(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      const content = e.target.result;
+      const language = this.detectLanguageFromFile(file);
+      
+      // Update editor content
+      if (this.editor) {
+        this.editor.setValue(content);
+        
+        // Set language
+        const model = this.editor.getModel();
+        if (window.monaco && model) {
+          window.monaco.editor.setModelLanguage(model, language);
+        }
+        
+        // Update script template
+        const script = this.scriptTemplates[this.selectedScriptIndex];
+        script.code = content;
+        script.name = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+        
+        console.log(`File loaded: ${file.name} with language: ${language}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Detect language from file extension and content
+  detectLanguageFromFile(file: File): string {
+    const fileName = file.name.toLowerCase();
+    const extension = fileName.split('.').pop();
+    
+    // Check file extension first
+    switch (extension) {
+      case 'html':
+      case 'htm':
+        return 'html';
+      case 'sql':
+        return 'sql';
+      case 'js':
+      case 'jsx':
+      case 'ts':
+      case 'tsx':
+      case 'vue':
+      case 'php':
+      case 'py':
+      case 'java':
+      case 'cpp':
+      case 'c':
+      case 'cs':
+      case 'rb':
+      case 'go':
+      case 'rs':
+      case 'swift':
+      case 'kt':
+      case 'scala':
+      case 'r':
+      case 'm':
+      case 'pl':
+      case 'sh':
+      case 'bat':
+      case 'ps1':
+        return 'javascript';
+      case 'css':
+      case 'scss':
+      case 'sass':
+      case 'less':
+        return 'css';
+      case 'json':
+        return 'json';
+      case 'xml':
+        return 'xml';
+      case 'yml':
+      case 'yaml':
+        return 'yaml';
+      case 'md':
+      case 'markdown':
+        return 'markdown';
+      default:
+        // If no specific extension, try to detect from content
+        return 'javascript';
+    }
+  }
+
+  // Enhanced language detection from code content
+  detectLanguageFromCode(code: string): string {
+    const trimmedCode = code.trim();
+    
+    // HTML detection
+    if (trimmedCode.startsWith('<!DOCTYPE html') || 
+        trimmedCode.startsWith('<html') || 
+        trimmedCode.includes('<html') ||
+        trimmedCode.includes('<!DOCTYPE')) {
+      return 'html';
+    }
+    
+    // SQL detection
+    if (trimmedCode.toLowerCase().startsWith('select') || 
+        trimmedCode.toLowerCase().includes('from') ||
+        trimmedCode.toLowerCase().startsWith('insert') ||
+        trimmedCode.toLowerCase().startsWith('update') ||
+        trimmedCode.toLowerCase().startsWith('delete') ||
+        trimmedCode.toLowerCase().startsWith('create') ||
+        trimmedCode.toLowerCase().startsWith('drop') ||
+        trimmedCode.toLowerCase().startsWith('alter')) {
+      return 'sql';
+    }
+    
+    // CSS detection
+    if (trimmedCode.includes('{') && trimmedCode.includes('}') && 
+        (trimmedCode.includes('color:') || trimmedCode.includes('background:') || 
+         trimmedCode.includes('font-size:') || trimmedCode.includes('margin:') ||
+         trimmedCode.includes('padding:') || trimmedCode.includes('border:'))) {
+      return 'css';
+    }
+    
+    // JSON detection
+    if ((trimmedCode.startsWith('{') && trimmedCode.endsWith('}')) ||
+        (trimmedCode.startsWith('[') && trimmedCode.endsWith(']'))) {
+      try {
+        JSON.parse(trimmedCode);
+        return 'json';
+      } catch (e) {
+        // Not valid JSON, continue to other checks
+      }
+    }
+    
+    // YAML detection
+    if (trimmedCode.includes(':') && 
+        (trimmedCode.includes('version:') || trimmedCode.includes('name:') || 
+         trimmedCode.includes('description:') || trimmedCode.includes('dependencies:'))) {
+      return 'yaml';
+    }
+    
+    // Markdown detection
+    if (trimmedCode.startsWith('#') || 
+        trimmedCode.includes('##') || 
+        trimmedCode.includes('**') || 
+        trimmedCode.includes('*') ||
+        trimmedCode.includes('[') && trimmedCode.includes('](')) {
+      return 'markdown';
+    }
+    
+    // Default to JavaScript
+    return 'javascript';
+  }
+
   // Types Manager erişim metodları
   loadTypesModules(modules: string[]): void {
     console.log('loadTypesModules is deprecated, use addCustomLib instead');
@@ -858,7 +1014,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   // Download menu toggle
   toggleDownloadMenu() {
+    console.log('Toggle download menu clicked, current state:', this.showDownloadMenu);
     this.showDownloadMenu = !this.showDownloadMenu;
+    console.log('New state:', this.showDownloadMenu);
   }
 
   // Close download menu
