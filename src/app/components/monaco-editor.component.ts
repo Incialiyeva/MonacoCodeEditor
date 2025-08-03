@@ -7,7 +7,6 @@ import * as parserBabel from 'prettier/plugins/babel';
 import * as parserEstree from 'prettier/plugins/estree';
 
 // Yeni feature importları
-import { registerMonacoIntellisense } from '../features/intellisense/monaco-intellisense.provider';
 import { formatWithPrettier } from '../features/prettier/prettier-format.util';
 import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
@@ -15,6 +14,7 @@ import { registerHTMLLanguage } from '../features/language/html-language.provide
 import { registerSQLLanguage } from '../features/language/sql-language.provider';
 import { validateHTML } from '../features/language/html-validation.util';
 import { validateSQL } from '../features/language/sql-validation.util';
+import { MonacoTypesManager } from '../features/types/monaco-types-manager';
 
 interface EditorTab {
   name: string;
@@ -41,6 +41,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @Input() selectedScriptIndex: number = 0;
   @Input() editorTheme: string = 'vs-dark';
   editor: any;
+  typesManager: MonacoTypesManager | null = null;
 
   languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
@@ -364,6 +365,614 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           // HTML ve SQL dil desteğini kaydet
           registerHTMLLanguage(window.monaco);
           registerSQLLanguage(window.monaco);
+          
+          // Types Manager'ı başlat
+          this.typesManager = new MonacoTypesManager(window.monaco);
+          this.typesManager.loadAllModules();
+          
+          // Custom completion provider ekle
+          window.monaco.languages.registerCompletionItemProvider('javascript', {
+            triggerCharacters: ['.', ' '],
+            provideCompletionItems: (model: any, position: any) => {
+              const suggestions = [
+                // Context objects
+                {
+                  label: 'this',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'this',
+                  detail: 'Context object',
+                  documentation: 'Ana context nesnesi',
+                  sortText: '01'
+                },
+                {
+                  label: 's',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 's',
+                  detail: 'Context object (short)',
+                  documentation: 'Kısa context nesnesi',
+                  sortText: '02'
+                },
+                {
+                  label: 'form',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'form',
+                  detail: 'Form API',
+                  documentation: 'Form işlemleri için API',
+                  sortText: '03'
+                },
+                {
+                  label: 'dialog',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'dialog',
+                  detail: 'Dialog API',
+                  documentation: 'Dialog işlemleri için API',
+                  sortText: '04'
+                },
+                {
+                  label: 'navigation',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'navigation',
+                  detail: 'Navigation API',
+                  documentation: 'Sayfa geçiş işlemleri için API',
+                  sortText: '05'
+                },
+                {
+                  label: 'recordService',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'recordService',
+                  detail: 'Record Service',
+                  documentation: 'Kayıt işlemleri için servis',
+                  sortText: '06'
+                },
+                {
+                  label: 'page',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'page',
+                  detail: 'Page API',
+                  documentation: 'Sayfa işlemleri için API',
+                  sortText: '07'
+                },
+                {
+                  label: 'utils',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'utils',
+                  detail: 'Utils API',
+                  documentation: 'Yardımcı fonksiyonlar',
+                  sortText: '08'
+                },
+                {
+                  label: 'http',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'http',
+                  detail: 'HTTP API',
+                  documentation: 'HTTP istekleri için API',
+                  sortText: '09'
+                },
+                {
+                  label: 'storage',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'storage',
+                  detail: 'Storage API',
+                  documentation: 'Depolama işlemleri için API',
+                  sortText: '10'
+                },
+                {
+                  label: 'events',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'events',
+                  detail: 'Events API',
+                  documentation: 'Olay yönetimi için API',
+                  sortText: '11'
+                },
+                // Form methods
+                {
+                  label: 'form.getValue',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.getValue(${1:field})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Form API - Get field value',
+                  documentation: 'Form alanının değerini alır',
+                  sortText: '12'
+                },
+                {
+                  label: 'form.setValue',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.setValue(${1:field}, ${2:value})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Form API - Set field value',
+                  documentation: 'Form alanının değerini ayarlar',
+                  sortText: '13'
+                },
+                {
+                  label: 'form.validate',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.validate()',
+                  detail: 'Form API - Validate form',
+                  documentation: 'Formu doğrular',
+                  sortText: '14'
+                },
+                {
+                  label: 'form.submit',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.submit()',
+                  detail: 'Form API - Submit form',
+                  documentation: 'Formu gönderir',
+                  sortText: '15'
+                },
+                // Dialog methods
+                {
+                  label: 'dialog.alert',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.alert(${1:message})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show alert',
+                  documentation: 'Uyarı mesajı gösterir',
+                  sortText: '16'
+                },
+                {
+                  label: 'dialog.confirm',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.confirm(${1:message})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show confirmation',
+                  documentation: 'Onay mesajı gösterir',
+                  sortText: '17'
+                },
+                {
+                  label: 'dialog.prompt',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.prompt(${1:message}, ${2:defaultValue})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show prompt',
+                  documentation: 'Kullanıcıdan girdi alır',
+                  sortText: '18'
+                },
+                // Navigation methods
+                {
+                  label: 'navigation.go',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'navigation.go(${1:path})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Navigation API - Navigate to path',
+                  documentation: 'Belirtilen sayfaya gider',
+                  sortText: '19'
+                },
+                {
+                  label: 'navigation.back',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'navigation.back()',
+                  detail: 'Navigation API - Go back',
+                  documentation: 'Önceki sayfaya döner',
+                  sortText: '20'
+                },
+                // RecordService methods
+                {
+                  label: 'recordService.getCurrentRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.getCurrentRecord()',
+                  detail: 'Record Service - Get current record',
+                  documentation: 'Mevcut kaydı alır',
+                  sortText: '21'
+                },
+                {
+                  label: 'recordService.saveRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.saveRecord(${1:record})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Record Service - Save record',
+                  documentation: 'Kaydı kaydeder',
+                  sortText: '22'
+                },
+                {
+                  label: 'recordService.deleteRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.deleteRecord(${1:id})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Record Service - Delete record',
+                  documentation: 'Kaydı siler',
+                  sortText: '23'
+                },
+                // Utils methods
+                {
+                  label: 'utils.formatDate',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'utils.formatDate(${1:date}, ${2:format})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Utils API - Format date',
+                  documentation: 'Tarihi formatlar',
+                  sortText: '24'
+                },
+                {
+                  label: 'utils.generateId',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'utils.generateId()',
+                  detail: 'Utils API - Generate ID',
+                  documentation: 'Benzersiz ID oluşturur',
+                  sortText: '25'
+                },
+                // HTTP methods
+                {
+                  label: 'http.get',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'http.get(${1:url}, ${2:params})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'HTTP API - GET request',
+                  documentation: 'GET isteği gönderir',
+                  sortText: '26'
+                },
+                {
+                  label: 'http.post',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'http.post(${1:url}, ${2:data})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'HTTP API - POST request',
+                  documentation: 'POST isteği gönderir',
+                  sortText: '27'
+                },
+                // Storage methods
+                {
+                  label: 'storage.get',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'storage.get(${1:key})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Storage API - Get value',
+                  documentation: 'Depolanan değeri alır',
+                  sortText: '28'
+                },
+                {
+                  label: 'storage.set',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'storage.set(${1:key}, ${2:value})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Storage API - Set value',
+                  documentation: 'Değeri depolar',
+                  sortText: '29'
+                },
+                // Events methods
+                {
+                  label: 'events.on',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'events.on(${1:event}, ${2:handler})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Events API - Add event listener',
+                  documentation: 'Olay dinleyicisi ekler',
+                  sortText: '30'
+                },
+                {
+                  label: 'events.emit',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'events.emit(${1:event}, ${2:...args})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Events API - Emit event',
+                  documentation: 'Olay yayar',
+                  sortText: '31'
+                }
+              ];
+              
+              return { suggestions };
+            }
+          });
+          
+          // TypeScript için de aynı provider'ı ekle
+          window.monaco.languages.registerCompletionItemProvider('typescript', {
+            triggerCharacters: ['.', ' '],
+            provideCompletionItems: (model: any, position: any) => {
+              const suggestions = [
+                {
+                  label: 'this',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'this',
+                  detail: 'Context object',
+                  documentation: 'Ana context nesnesi',
+                  sortText: '01'
+                },
+                {
+                  label: 's',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 's',
+                  detail: 'Context object (short)',
+                  documentation: 'Kısa context nesnesi',
+                  sortText: '02'
+                },
+                {
+                  label: 'form',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'form',
+                  detail: 'Form API',
+                  documentation: 'Form işlemleri için API',
+                  sortText: '03'
+                },
+                {
+                  label: 'dialog',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'dialog',
+                  detail: 'Dialog API',
+                  documentation: 'Dialog işlemleri için API',
+                  sortText: '04'
+                },
+                {
+                  label: 'navigation',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'navigation',
+                  detail: 'Navigation API',
+                  documentation: 'Sayfa geçiş işlemleri için API',
+                  sortText: '05'
+                },
+                {
+                  label: 'recordService',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'recordService',
+                  detail: 'Record Service',
+                  documentation: 'Kayıt işlemleri için servis',
+                  sortText: '06'
+                },
+                {
+                  label: 'page',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'page',
+                  detail: 'Page API',
+                  documentation: 'Sayfa işlemleri için API',
+                  sortText: '07'
+                },
+                {
+                  label: 'utils',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'utils',
+                  detail: 'Utils API',
+                  documentation: 'Yardımcı fonksiyonlar',
+                  sortText: '08'
+                },
+                {
+                  label: 'http',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'http',
+                  detail: 'HTTP API',
+                  documentation: 'HTTP istekleri için API',
+                  sortText: '09'
+                },
+                {
+                  label: 'storage',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'storage',
+                  detail: 'Storage API',
+                  documentation: 'Depolama işlemleri için API',
+                  sortText: '10'
+                },
+                {
+                  label: 'events',
+                  kind: window.monaco.languages.CompletionItemKind.Variable,
+                  insertText: 'events',
+                  detail: 'Events API',
+                  documentation: 'Olay yönetimi için API',
+                  sortText: '11'
+                },
+                // Form methods
+                {
+                  label: 'form.getValue',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.getValue(${1:field})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Form API - Get field value',
+                  documentation: 'Form alanının değerini alır',
+                  sortText: '12'
+                },
+                {
+                  label: 'form.setValue',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.setValue(${1:field}, ${2:value})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Form API - Set field value',
+                  documentation: 'Form alanının değerini ayarlar',
+                  sortText: '13'
+                },
+                {
+                  label: 'form.validate',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.validate()',
+                  detail: 'Form API - Validate form',
+                  documentation: 'Formu doğrular',
+                  sortText: '14'
+                },
+                {
+                  label: 'form.submit',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'form.submit()',
+                  detail: 'Form API - Submit form',
+                  documentation: 'Formu gönderir',
+                  sortText: '15'
+                },
+                // Dialog methods
+                {
+                  label: 'dialog.alert',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.alert(${1:message})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show alert',
+                  documentation: 'Uyarı mesajı gösterir',
+                  sortText: '16'
+                },
+                {
+                  label: 'dialog.confirm',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.confirm(${1:message})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show confirmation',
+                  documentation: 'Onay mesajı gösterir',
+                  sortText: '17'
+                },
+                {
+                  label: 'dialog.prompt',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'dialog.prompt(${1:message}, ${2:defaultValue})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Dialog API - Show prompt',
+                  documentation: 'Kullanıcıdan girdi alır',
+                  sortText: '18'
+                },
+                // Navigation methods
+                {
+                  label: 'navigation.go',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'navigation.go(${1:path})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Navigation API - Navigate to path',
+                  documentation: 'Belirtilen sayfaya gider',
+                  sortText: '19'
+                },
+                {
+                  label: 'navigation.back',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'navigation.back()',
+                  detail: 'Navigation API - Go back',
+                  documentation: 'Önceki sayfaya döner',
+                  sortText: '20'
+                },
+                // RecordService methods
+                {
+                  label: 'recordService.getCurrentRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.getCurrentRecord()',
+                  detail: 'Record Service - Get current record',
+                  documentation: 'Mevcut kaydı alır',
+                  sortText: '21'
+                },
+                {
+                  label: 'recordService.saveRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.saveRecord(${1:record})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Record Service - Save record',
+                  documentation: 'Kaydı kaydeder',
+                  sortText: '22'
+                },
+                {
+                  label: 'recordService.deleteRecord',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'recordService.deleteRecord(${1:id})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Record Service - Delete record',
+                  documentation: 'Kaydı siler',
+                  sortText: '23'
+                },
+                // Utils methods
+                {
+                  label: 'utils.formatDate',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'utils.formatDate(${1:date}, ${2:format})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Utils API - Format date',
+                  documentation: 'Tarihi formatlar',
+                  sortText: '24'
+                },
+                {
+                  label: 'utils.generateId',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'utils.generateId()',
+                  detail: 'Utils API - Generate ID',
+                  documentation: 'Benzersiz ID oluşturur',
+                  sortText: '25'
+                },
+                // HTTP methods
+                {
+                  label: 'http.get',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'http.get(${1:url}, ${2:params})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'HTTP API - GET request',
+                  documentation: 'GET isteği gönderir',
+                  sortText: '26'
+                },
+                {
+                  label: 'http.post',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'http.post(${1:url}, ${2:data})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'HTTP API - POST request',
+                  documentation: 'POST isteği gönderir',
+                  sortText: '27'
+                },
+                // Storage methods
+                {
+                  label: 'storage.get',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'storage.get(${1:key})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Storage API - Get value',
+                  documentation: 'Depolanan değeri alır',
+                  sortText: '28'
+                },
+                {
+                  label: 'storage.set',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'storage.set(${1:key}, ${2:value})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Storage API - Set value',
+                  documentation: 'Değeri depolar',
+                  sortText: '29'
+                },
+                // Events methods
+                {
+                  label: 'events.on',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'events.on(${1:event}, ${2:handler})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Events API - Add event listener',
+                  documentation: 'Olay dinleyicisi ekler',
+                  sortText: '30'
+                },
+                {
+                  label: 'events.emit',
+                  kind: window.monaco.languages.CompletionItemKind.Method,
+                  insertText: 'events.emit(${1:event}, ${2:...args})',
+                  insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  detail: 'Events API - Emit event',
+                  documentation: 'Olay yayar',
+                  sortText: '31'
+                }
+              ];
+              
+              return { suggestions };
+            }
+          });
+          
+          // TypeScript ayarlarını güncelle
+          this.typesManager.updateTypeScriptSettings({
+            allowJs: true,
+            checkJs: true,
+            jsx: window.monaco.languages.typescript.JsxEmit.React,
+            allowSyntheticDefaultImports: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+            noImplicitAny: false,
+            noImplicitReturns: true,
+            noUnusedLocals: false,
+            noUnusedParameters: false,
+            strict: false,
+            strictNullChecks: false,
+            suppressImplicitAnyIndexErrors: true,
+            useDefineForClassFields: true,
+            experimentalDecorators: true,
+            emitDecoratorMetadata: true
+          });
+          
+          // JavaScript ayarlarını güncelle
+          this.typesManager.updateJavaScriptSettings({
+            allowJs: true,
+            checkJs: true,
+            allowSyntheticDefaultImports: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+            noImplicitAny: false,
+            noImplicitReturns: true,
+            noUnusedLocals: false,
+            noUnusedParameters: false,
+            strict: false,
+            strictNullChecks: false,
+            suppressImplicitAnyIndexErrors: true,
+            useDefineForClassFields: true,
+            experimentalDecorators: true,
+            emitDecoratorMetadata: true
+          });
         }
 
         // Seçilen script template'ini al
@@ -375,17 +984,27 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             language: language,
             theme: this.editorTheme,
             automaticLayout: true,
-            // HTML için gelişmiş özellikler
-            ...(language === 'html' && {
-              formatOnPaste: true,
-              formatOnType: true,
-              suggestOnTriggerCharacters: true,
-              quickSuggestions: {
-                other: true,
-                comments: false,
-                strings: true
-              }
-            })
+            // Gelişmiş IntelliSense ayarları
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+              other: true,
+              comments: true,
+              strings: true
+            },
+            acceptSuggestionOnCommitCharacter: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: true,
+            parameterHints: {
+              enabled: true
+            },
+            suggest: {
+              localityBonus: true,
+              snippetsPreventQuickSuggestions: false,
+              showIcons: true,
+              maxVisibleSuggestions: 12,
+              insertMode: 'replace'
+            }
           });
           
           
@@ -420,8 +1039,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             }
           });
           
-          // Sadece intellisense provider fonksiyonunu çağır
-          registerMonacoIntellisense(window.monaco);
           console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
         } else {
           console.error('Script template not found for index:', this.selectedScriptIndex);
@@ -767,6 +1384,38 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       } else {
         alert('Live Server sadece HTML dosyaları için kullanılabilir!');
       }
+    }
+  }
+
+  // Types Manager erişim metodları
+  loadTypesModules(modules: string[]): void {
+    if (this.typesManager) {
+      this.typesManager.loadModules(modules as any);
+    }
+  }
+
+  loadOnlyTypesModules(modules: string[]): void {
+    if (this.typesManager) {
+      this.typesManager.loadOnly(modules as any);
+    }
+  }
+
+  getLoadedTypesModules(): string[] {
+    if (this.typesManager) {
+      return this.typesManager.getLoadedModules();
+    }
+    return [];
+  }
+
+  addCustomType(content: string, filename: string): void {
+    if (this.typesManager) {
+      this.typesManager.addCustomType(content, filename);
+    }
+  }
+
+  removeCustomType(filename: string): void {
+    if (this.typesManager) {
+      this.typesManager.removeCustomType(filename);
     }
   }
 }
