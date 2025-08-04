@@ -23,30 +23,18 @@ Bu rehber, Angular projenizde **Monaco Editor** ve **Prettier** entegrasyonunu n
 
 ---
 
-## ✨ Kurulum Adımları
+## 🔧 Monaco Editor Kurulumu
 
-### 1. Bağımlılıkları Yükleyin
-
+### 1. Paketi Yükleyin
 ```bash
-# Monaco Editor
 npm install monaco-editor
-
-# Prettier ve plugin'leri
-npm install prettier prettier/standalone prettier/plugins/babel prettier/plugins/estree
-
-# Webpack plugin (opsiyonel)
-npm install monaco-editor-webpack-plugin --save-dev
 ```
 
 ### 2. Angular Yapılandırması
-
 `angular.json` dosyasına assets ekleyin:
-
 ```json
 {
   "assets": [
-    "src/favicon.ico",
-    "src/assets",
     {
       "glob": "**/*",
       "input": "node_modules/monaco-editor/min/vs",
@@ -57,21 +45,13 @@ npm install monaco-editor-webpack-plugin --save-dev
 ```
 
 ### 3. Component Oluşturun
-
-**HTML Template:**
 ```html
-<div class="editor-container">
-  <div #editorContainer style="height: 400px; width: 100%;"></div>
-  <button (click)="formatCode()">Format Code</button>
-</div>
+<div #editorContainer style="height: 400px; width: 100%;"></div>
 ```
 
-**TypeScript Component:**
+### 4. TypeScript Kodunu Ekleyin
 ```typescript
 import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
-import * as prettier from 'prettier/standalone';
-import * as parserBabel from 'prettier/plugins/babel';
-import * as parserEstree from 'prettier/plugins/estree';
 
 declare global {
   interface Window {
@@ -91,7 +71,6 @@ export class MonacoEditorComponent implements AfterViewInit {
   ngAfterViewInit() {
     if (typeof window.require === 'function') {
       window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-      
       window.require(['vs/editor/editor.main'], () => {
         this.initializeEditor();
       });
@@ -106,153 +85,161 @@ export class MonacoEditorComponent implements AfterViewInit {
       automaticLayout: true,
     });
   }
+}
+```
 
-  async formatCode(): Promise<void> {
-    if (this.editor) {
-      try {
-        const code = this.editor.getValue();
-        const formatted = await prettier.format(code, {
-          parser: 'babel',
-          plugins: [parserBabel, parserEstree],
-          semi: true,
-          singleQuote: true,
-        });
-        this.editor.setValue(formatted);
-      } catch (error) {
-        console.error('Format error:', error);
-      }
+### 5. Temel Ayarları Yapın
+```typescript
+// Dil desteği
+language: 'javascript' | 'html' | 'sql' | 'typescript' | 'json'
+
+// Tema seçenekleri
+theme: 'vs-dark' | 'vs-light' | 'hc-black'
+
+// Otomatik düzen
+automaticLayout: true
+```
+
+### 6. Hata Kontrolü
+- Console'da Monaco yükleme hatalarını kontrol edin
+- Assets klasörünün doğru yapılandırıldığını doğrulayın
+- Development server'ı yeniden başlatın
+
+---
+
+## 🎨 Prettier Kurulumu
+
+### 1. Prettier Paketlerini Yükleyin
+```bash
+npm install prettier prettier/standalone prettier/plugins/babel prettier/plugins/estree
+```
+
+### 2. Import'ları Ekleyin
+```typescript
+import * as prettier from 'prettier/standalone';
+import * as parserBabel from 'prettier/plugins/babel';
+import * as parserEstree from 'prettier/plugins/estree';
+```
+
+### 3. Format Fonksiyonu Oluşturun
+```typescript
+async formatCode(): Promise<void> {
+  if (this.editor) {
+    try {
+      const code = this.editor.getValue();
+      const formatted = await prettier.format(code, {
+        parser: 'babel',
+        plugins: [parserBabel, parserEstree],
+        semi: true,
+        singleQuote: true,
+      });
+      this.editor.setValue(formatted);
+    } catch (error) {
+      console.error('Format error:', error);
     }
   }
 }
 ```
 
-### 4. Dil Desteği
-
-```typescript
-// JavaScript
-language: 'javascript'
-
-// HTML
-language: 'html'
-
-// SQL
-language: 'sql'
-
-// TypeScript
-language: 'typescript'
-
-// JSON
-language: 'json'
+### 4. Buton Ekleyin
+```html
+<button (click)="formatCode()">Format Code</button>
 ```
 
-### 5. Tema Seçenekleri
-
+### 5. Parser Ayarlarını Yapın
 ```typescript
-// Koyu tema
-theme: 'vs-dark'
+// JavaScript için
+parser: 'babel'
 
-// Açık tema
-theme: 'vs-light'
+// HTML için
+parser: 'html'
 
-// Yüksek kontrast
-theme: 'hc-black'
+// JSON için
+parser: 'json'
+```
+
+### 6. Prettier Ayarlarını Özelleştirin
+```typescript
+const prettierOptions = {
+  semi: true,
+  singleQuote: true,
+  tabWidth: 2,
+  printWidth: 80,
+  trailingComma: 'es5'
+};
 ```
 
 ---
 
-## 🛠️ Ek Özellikler
+## ⚙️ Özelleştirme Ayarları
 
-### Dosya Yükleme/İndirme
-
-**Dosya Yükleme:**
+### 1. Klavye Kısayolu Ekleme
 ```typescript
-triggerFileUpload(): void {
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.js,.html,.sql,.css,.json';
-  fileInput.onchange = (event: any) => {
-    const file = event.target.files[0];
-    if (file) {
-      this.loadFileIntoEditor(file);
-    }
-  };
-  fileInput.click();
-}
-
-loadFileIntoEditor(file: File): void {
-  const reader = new FileReader();
-  reader.onload = (e: any) => {
-    this.editor.setValue(e.target.result);
-  };
-  reader.readAsText(file);
-}
+this.editor.addAction({
+  id: 'format-document',
+  label: 'Format Document',
+  keybindings: [
+    window.monaco.KeyMod.CtrlCmd | window.monaco.KeyMod.Shift | window.monaco.KeyCode.KeyF
+  ],
+  run: async (ed: any) => {
+    await this.formatCode();
+  }
+});
 ```
 
-**Dosya İndirme:**
+### 2. IntelliSense Ekleme
 ```typescript
-downloadFile(): void {
-  const code = this.editor.getValue();
-  const blob = new Blob([code], { type: 'text/plain' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'code.js';
-  link.click();
-  window.URL.revokeObjectURL(url);
-}
+window.monaco.languages.typescript.javascriptDefaults.addExtraLib(`
+declare var myGlobalFunction: () => void;
+`, 'global-types.d.ts');
 ```
 
-### Diff Görüntüleme
-
+### 3. Özel Tema Oluşturma
 ```typescript
-showDiff(): void {
-  const original = this.lastSavedCode;
-  const modified = this.editor.getValue();
-  
-  const diffEditor = window.monaco.editor.createDiffEditor(
-    document.getElementById('diff-container'), 
-    { originalEditable: false, readOnly: true }
-  );
-  
-  diffEditor.setModel({
-    original: window.monaco.editor.createModel(original, 'javascript'),
-    modified: window.monaco.editor.createModel(modified, 'javascript')
-  });
-}
+window.monaco.editor.defineTheme('my-theme', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [],
+  colors: {
+    'editor.background': '#1e1e1e',
+    'editor.foreground': '#d4d4d4'
+  }
+});
 ```
 
-### Kaydetme ve Geri Alma
-
+### 4. Dil Desteği Ekleme
 ```typescript
-// Kaydetme
-saveCode(): void {
-  const code = this.editor.getValue();
-  this.lastSavedCode = code;
-  console.log('Code saved');
-}
-
-// Geri alma
-revertChanges(): void {
-  this.editor.setValue(this.lastSavedCode);
-  console.log('Changes reverted');
-}
+// Yeni dil için
+language: 'python' | 'java' | 'cpp' | 'csharp'
 ```
 
-### Tema Değiştirme
-
+### 5. Tema Değiştirme
 ```typescript
 toggleTheme(): void {
   const currentTheme = this.editor.getOption(window.monaco.editor.EditorOption.theme);
   const newTheme = currentTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
-  
   window.monaco.editor.setTheme(newTheme);
-  this.editor.updateOptions({ theme: newTheme });
 }
+```
+
+### 6. Editor Ayarları
+```typescript
+// Otomatik tamamlama
+quickSuggestions: true,
+
+// Satır numaraları
+lineNumbers: 'on',
+
+// Minimap
+minimap: { enabled: true },
+
+// Word wrap
+wordWrap: 'on'
 ```
 
 ---
 
-## ⚠️ Yaygın Sorunlar
+## ⚠️ Sıkça Yaşanan Sorunlar
 
 ### 1. Monaco Yüklenmiyor
 **Sorun:** Monaco Editor yüklenmiyor veya hata veriyor.
@@ -354,56 +341,15 @@ parser: 'json'   // JSON için
 4. Try-catch bloğu kullanın
 5. Console'da hataları kontrol edin
 
----
+### 6. Performans Sorunları
+**Sorun:** Editor yavaş çalışıyor.
 
-## 🎯 Özelleştirme
-
-### Klavye Kısayolu
-```typescript
-this.editor.addAction({
-  id: 'format-document',
-  label: 'Format Document',
-  keybindings: [
-    window.monaco.KeyMod.CtrlCmd | window.monaco.KeyMod.Shift | window.monaco.KeyCode.KeyF
-  ],
-  run: async (ed: any) => {
-    await this.formatCode();
-  }
-});
-```
-
-### IntelliSense Ekleme
-```typescript
-window.monaco.languages.typescript.javascriptDefaults.addExtraLib(`
-declare var myGlobalFunction: () => void;
-`, 'global-types.d.ts');
-```
-
-### Özel Tema
-```typescript
-window.monaco.editor.defineTheme('my-theme', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.background': '#1e1e1e',
-    'editor.foreground': '#d4d4d4'
-  }
-});
-```
-
-### Prettier Ayarları
-```typescript
-const prettierOptions = {
-  semi: true,
-  singleQuote: true,
-  tabWidth: 2,
-  printWidth: 80,
-  trailingComma: 'es5',
-  bracketSpacing: true,
-  arrowParens: 'avoid'
-};
-```
+**Çözümler:**
+1. Büyük dosyalar için lazy loading kullanın
+2. Monaco worker'larını optimize edin
+3. Gereksiz özellikleri devre dışı bırakın
+4. Memory leak'leri kontrol edin
+5. Editor'ü destroy ederken temizlik yapın
 
 ---
 
