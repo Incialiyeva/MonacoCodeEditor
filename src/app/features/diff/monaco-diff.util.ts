@@ -35,7 +35,7 @@ export function showMonacoDiff({
   diffEditor.setModel({ original: originalModel, modified: modifiedModel });
   // Kapatma butonu
   const closeBtn = document.createElement('button');
-  closeBtn.innerText = 'Kapat';
+  closeBtn.innerText = 'Close';
   closeBtn.style.position = 'absolute';
   closeBtn.style.top = '12px';
   closeBtn.style.right = '18px';
@@ -56,7 +56,7 @@ export function showMonacoDiff({
   diffContainer.appendChild(closeBtn);
   // Kodu Güncelle butonu
   const applyBtn = document.createElement('button');
-  applyBtn.innerText = 'Kodu Güncelle';
+  applyBtn.innerText = 'Update Code';
   applyBtn.style.position = 'absolute';
   applyBtn.style.top = '12px';
   applyBtn.style.right = '110px';

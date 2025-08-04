@@ -7,7 +7,7 @@ import * as parserBabel from 'prettier/plugins/babel';
 import * as parserEstree from 'prettier/plugins/estree';
 
 // Yeni feature importları
-import { registerMonacoIntellisense } from '../features/intellisense/monaco-intellisense.provider';
+import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../features/intellisense/monaco-intellisense.provider';
 import { formatWithPrettier } from '../features/prettier/prettier-format.util';
 import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
@@ -38,9 +38,11 @@ declare global {
 })
 export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('fileInput', { static: false }) fileInput!: ElementRef<HTMLInputElement>;
   @Input() selectedScriptIndex: number = 0;
   @Input() editorTheme: string = 'vs-dark';
   editor: any;
+  intelliSenseProvider: MonacoIntelliSenseProvider | null = null;
 
   languages: { value: string, label: string, icon: SafeHtml }[] = [];
   selectedLanguage = 'javascript';
@@ -79,6 +81,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   // Diff için orijinal kodları sakla
   originalCodeByTab: Record<string, string> = {};
+
+  // Download menu için
+  showDownloadMenu = false;
+
+  // Save confirmation modal için
+  showSaveConfirmation = false;
 
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
@@ -185,6 +193,31 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       name: 'SQL with Errors',
       description: 'SQL with intentional errors for testing validation.',
       code: `SELECT * FROM users\nWHERE active = 1\nORDER BY created_at DESC`
+    },
+    {
+      name: 'SQL Complex Errors',
+      description: 'SQL with multiple intentional errors for comprehensive testing.',
+      code: `SELECT * FROM users\nWHERE active\nORDER BY\nGROUP BY name\nINSERT users (name, email)\nUPDATE users\nDELETE users\nCREATE TABLE users\nJOIN orders`
+    },
+    {
+      name: 'Valid SQL Examples',
+      description: 'Valid SQL statements for testing.',
+      code: `SELECT * FROM users WHERE active = 1;\n\nUPDATE users SET last_login = NOW() WHERE id = 1;\n\nINSERT INTO users (name, email) VALUES ('John', 'john@example.com');`
+    },
+    {
+      name: 'SQL with Typos',
+      description: 'SQL with common typos for testing validation.',
+      code: `SELEC id, name email\nFORM users\nWHERE active = 'yes'\nAND ORDER BY created_at DESC`
+    },
+    {
+      name: 'Complex SQL Query',
+      description: 'Complex SQL query with multiple clauses.',
+      code: `SELECT u.id, u.name, u.email, COUNT(o.id) as order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nWHERE u.active = 1\nAND u.created_at > '2023-01-01'\nGROUP BY u.id, u.name, u.email\nHAVING COUNT(o.id) > 0\nORDER BY order_count DESC\nLIMIT 10`
+    },
+    {
+      name: 'SQL with Functions',
+      description: 'SQL with various functions and expressions.',
+      code: `SELECT \n  id,\n  name,\n  email,\n  CONCAT(first_name, ' ', last_name) as full_name,\n  COUNT(*) as total_orders,\n  SUM(amount) as total_amount,\n  AVG(amount) as avg_amount\nFROM users u\nJOIN orders o ON u.id = o.user_id\nWHERE status = 'active'\nGROUP BY id, name, email, first_name, last_name\nHAVING total_amount > 1000\nORDER BY total_amount DESC`
     }
   ];
 
@@ -218,6 +251,14 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           window.monaco.editor.setModelLanguage(model, language);
         }
         this.editor.setValue(selectedScript.code);
+        
+        // Initialize saved code for this script if not already saved
+        const scriptKey = `script_${newScriptIndex}`;
+        if (!this.lastSavedCodeByTab[scriptKey]) {
+          this.lastSavedCodeByTab[scriptKey] = selectedScript.code;
+          this.originalCodeByTab[scriptKey] = selectedScript.code;
+        }
+        
         console.log('Script changed to:', selectedScript.name);
       }
     }
@@ -339,6 +380,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           // HTML ve SQL dil desteğini kaydet
           registerHTMLLanguage(window.monaco);
           registerSQLLanguage(window.monaco);
+          
+          // IntelliSense provider'ı başlat
+          this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
         }
 
         // Seçilen script template'ini al
@@ -350,17 +394,42 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             language: language,
             theme: this.editorTheme,
             automaticLayout: true,
-            // HTML için gelişmiş özellikler
-            ...(language === 'html' && {
-              formatOnPaste: true,
-              formatOnType: true,
-              suggestOnTriggerCharacters: true,
-              quickSuggestions: {
-                other: true,
-                comments: false,
-                strings: true
+            // Gelişmiş IntelliSense ayarları
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+              other: true,
+              comments: true,
+              strings: true
+            },
+            acceptSuggestionOnCommitCharacter: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: true,
+            parameterHints: {
+              enabled: true
+            },
+            suggest: {
+              localityBonus: true,
+              snippetsPreventQuickSuggestions: false,
+              showIcons: true,
+              maxVisibleSuggestions: 12,
+              insertMode: 'replace'
+            },
+            // TypeScript/JavaScript için özel ayarlar
+            typescript: {
+              suggest: {
+                includeCompletionsForModuleExports: true,
+                includeCompletionsWithSnippetText: true,
+                includeCompletionsWithInsertText: true
               }
-            })
+            },
+            javascript: {
+              suggest: {
+                includeCompletionsForModuleExports: true,
+                includeCompletionsWithSnippetText: true,
+                includeCompletionsWithInsertText: true
+              }
+            }
           });
           
           
@@ -371,8 +440,33 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             setTimeout(() => this.checkCodeErrors(), 500);
           });
           
-          // Sadece intellisense provider fonksiyonunu çağır
-          registerMonacoIntellisense(window.monaco);
+          // Initialize saved codes for all scripts
+          this.initializeSavedCodes();
+          
+          // Context menu ekle
+          this.editor.addAction({
+            id: 'format-document',
+            label: 'Format Document',
+            keybindings: [
+              window.monaco.KeyMod.Alt | window.monaco.KeyCode.KeyF
+            ],
+            contextMenuGroupId: '1_modification',
+            contextMenuOrder: 1.5,
+            run: async (ed: any) => {
+              await this.formatCode();
+            }
+          });
+          
+          this.editor.addAction({
+            id: 'open-in-live-server',
+            label: 'Open in Live Server',
+            contextMenuGroupId: '9_cutcopypaste',
+            contextMenuOrder: 1.5,
+            run: (ed: any) => {
+              this.openInLiveServer();
+            }
+          });
+          
           console.log('Monaco editor mounted with script:', selectedScript.name, 'and theme:', this.editorTheme);
         } else {
           console.error('Script template not found for index:', this.selectedScriptIndex);
@@ -393,17 +487,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     const code = this.tabsByLanguage[lang][0]?.code || '';
     this.openTabs.push({ lang, idx, name, code, language: lang });
     this.selectTabUniversal(lang, idx);
-  }
-
-  // Kod içeriğine göre dil tespit et
-  detectLanguageFromCode(code: string): string {
-    if (code.trim().startsWith('<!DOCTYPE html') || code.includes('<html')) {
-      return 'html';
-    }
-    if (code.toLowerCase().startsWith('select') || code.toLowerCase().includes('from')) {
-      return 'sql';
-    }
-    return 'javascript';
   }
 
   // Kod hatalarını kontrol et ve göster
@@ -441,6 +524,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (window.monaco && this.editor) {
       const model = this.editor.getModel();
       if (model) {
+        const language = this.detectLanguageFromCode(this.editor.getValue());
+        const namespace = language === 'html' ? 'html-validation' : 'sql-validation';
+        
         const markers = errors.map((error, index) => ({
           message: error,
           severity: window.monaco.MarkerSeverity.Error,
@@ -450,7 +536,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
           endColumn: model.getLineMaxColumn(model.getLineCount())
         }));
         
-        window.monaco.editor.setModelMarkers(model, 'html-validation', markers);
+        window.monaco.editor.setModelMarkers(model, namespace, markers);
       }
     }
   }
@@ -460,7 +546,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (window.monaco && this.editor) {
       const model = this.editor.getModel();
       if (model) {
-        window.monaco.editor.setModelMarkers(model, 'html-validation', []);
+        const language = this.detectLanguageFromCode(this.editor.getValue());
+        const namespace = language === 'html' ? 'html-validation' : 'sql-validation';
+        window.monaco.editor.setModelMarkers(model, namespace, []);
       }
     }
   }
@@ -498,12 +586,134 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   saveCode() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
-      const code = this.editor.getValue();
-      // Aktif tab için kaydedilen kodu sakla
-      const tabKey = this.getActiveTabKey();
-      this.lastSavedCodeByTab[tabKey] = code;
-      this.openSaveModal();
+      // Show diff view first, let user review changes
+      this.showDiffForSave();
     }
+  }
+
+  // Show diff view for save confirmation
+  showDiffForSave() {
+    if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const original = this.lastSavedCodeByTab[scriptKey] || script.code;
+      const modified = this.editor.getValue();
+      
+      // Detect language for diff
+      const language = this.detectLanguageFromCode(modified);
+      
+      console.log('Showing diff for save confirmation');
+      console.log('Original (saved):', original.substring(0, 100) + '...');
+      console.log('Modified (current):', modified.substring(0, 100) + '...');
+      
+      // Show Monaco diff with save confirmation
+      showMonacoDiff({
+        monaco: window.monaco,
+        editor: this.editor,
+        original,
+        modified,
+        language,
+        theme: this.selectedTheme
+      });
+      
+      // Show save confirmation modal after diff
+      setTimeout(() => {
+        this.showSaveConfirmationModal();
+      }, 1000);
+    }
+  }
+
+  // Confirm save after user reviews diff
+  confirmSave() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      
+      // Save the current code to the script template
+      script.code = code;
+      
+      // Store the saved code for diff comparison
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      this.lastSavedCodeByTab[scriptKey] = code;
+      
+      // Also store in original code for diff
+      this.originalCodeByTab[scriptKey] = code;
+      
+      console.log('Code saved successfully after diff confirmation:', script.name);
+      
+      // Show success message
+      this.showSaveSuccessMessage();
+      
+      // Close the modal
+      this.showSaveConfirmation = false;
+    }
+  }
+
+  // Cancel save after diff review
+  cancelSave() {
+    console.log('Save cancelled by user');
+    // Close the modal
+    this.showSaveConfirmation = false;
+    // Optionally show a message that save was cancelled
+    this.showCancelMessage();
+  }
+
+  // Show cancel message
+  showCancelMessage() {
+    const message = document.createElement('div');
+    message.textContent = 'Save cancelled';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff6b6b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
+  }
+
+  // Show save success message
+  showSaveSuccessMessage() {
+    // Create a temporary success message
+    const message = document.createElement('div');
+    message.textContent = 'Code saved successfully!';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #3fb950;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(63, 185, 80, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
   }
 
   closeSaveModal() {
@@ -636,16 +846,27 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Diff gösterme fonksiyonu (Monaco diff editor ile açılacak)
   showDiff() {
     if (isPlatformBrowser(this.platformId) && this.editor && window.monaco) {
-      const tabKey = this.getActiveTabKey();
-      const original = this.lastSavedCodeByTab[tabKey] || '';
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const original = this.lastSavedCodeByTab[scriptKey] || script.code;
       const modified = this.editor.getValue();
-      // Sadece diff fonksiyonunu çağır
+      
+      // Detect language for diff
+      const language = this.detectLanguageFromCode(modified);
+      
+      console.log('Showing diff between saved and current version');
+      console.log('Original (saved):', original.substring(0, 100) + '...');
+      console.log('Modified (current):', modified.substring(0, 100) + '...');
+      
+      // Always show Monaco diff, even if files are identical
       showMonacoDiff({
         monaco: window.monaco,
         editor: this.editor,
         original,
         modified,
-        language: 'javascript',
+        language,
         theme: this.selectedTheme
       });
     }
@@ -656,13 +877,20 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       try {
         const code = this.editor.getValue();
+        const language = this.detectLanguageFromCode(code);
+        
+        // Formatlama sırasında validation'ı geçici olarak devre dışı bırak
+        this.clearValidationMarkers();
+        
         // Sadece prettier format fonksiyonunu çağır
-        const formatted = await formatWithPrettier(code);
+        const formatted = await formatWithPrettier(code, language);
         if (typeof formatted === 'string') {
           const model = this.editor.getModel();
           if (model) {
             setTimeout(() => {
               this.editor.setValue(formatted);
+              // Formatlama sonrası validation'ı tekrar etkinleştir
+              setTimeout(() => this.checkCodeErrors(), 1000);
             }, 0);
           } else {
             alert('Monaco Editor modeli bulunamadı!');
@@ -681,7 +909,437 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   revertChanges() {
     if (isPlatformBrowser(this.platformId) && this.editor) {
       const script = this.scriptTemplates[this.selectedScriptIndex];
-      this.editor.setValue(script.code);
+      const scriptKey = `script_${this.selectedScriptIndex}`;
+      
+      // Get the last saved version
+      const savedCode = this.lastSavedCodeByTab[scriptKey] || script.code;
+      
+      // Revert to the saved version
+      this.editor.setValue(savedCode);
+      
+      // Update the script template to match
+      script.code = savedCode;
+      
+      console.log('Changes reverted to last saved version');
+      
+      // Show a brief revert message
+      this.showRevertMessage();
     }
+  }
+
+  // Show revert message
+  showRevertMessage() {
+    const message = document.createElement('div');
+    message.textContent = 'Changes reverted!';
+    message.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ffb300;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      box-shadow: 0 4px 16px rgba(255, 179, 0, 0.3);
+      animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 3000);
+  }
+
+  // Open in Live Server functionality
+  openInLiveServer() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      console.log('Detected language:', language);
+      console.log('Code preview:', code.substring(0, 100));
+      
+      if (language === 'html') {
+        // HTML içeriğini blob olarak oluştur
+        const blob = new Blob([code], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        
+        // Yeni sekmede aç
+        window.open(url, '_blank');
+        
+        console.log('HTML opened in new tab');
+      } else {
+        alert('Live Server sadece HTML dosyaları için kullanılabilir!');
+      }
+    }
+  }
+
+  // IntelliSense Provider erişim metodları
+  addCustomLib(content: string, targetFileSrc: string): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.addLib({ content, targetFileSrc });
+      this.intelliSenseProvider.loadLib(targetFileSrc);
+    }
+  }
+
+  removeCustomLib(targetFileSrc: string): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.removeLib(targetFileSrc);
+    }
+  }
+
+  getLoadedLibs(): string[] {
+    if (this.intelliSenseProvider) {
+      return this.intelliSenseProvider.getLoadedLibs();
+    }
+    return [];
+  }
+
+  getAllLibs(): any[] {
+    if (this.intelliSenseProvider) {
+      return this.intelliSenseProvider.getAllLibs();
+    }
+    return [];
+  }
+
+  clearAllLibs(): void {
+    if (this.intelliSenseProvider) {
+      this.intelliSenseProvider.clearAllLibs();
+    }
+  }
+
+  // File upload functionality
+  triggerFileUpload() {
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.click();
+    }
+    this.showDownloadMenu = false;
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.loadFileIntoEditor(file);
+    }
+    // Reset file input
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+  }
+
+  loadFileIntoEditor(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      const content = e.target.result;
+      const language = this.detectLanguageFromFile(file);
+      
+      // Update editor content
+      if (this.editor) {
+        this.editor.setValue(content);
+        
+        // Set language
+        const model = this.editor.getModel();
+        if (window.monaco && model) {
+          window.monaco.editor.setModelLanguage(model, language);
+        }
+        
+        // Update script template
+        const script = this.scriptTemplates[this.selectedScriptIndex];
+        script.code = content;
+        script.name = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+        
+        console.log(`File loaded: ${file.name} with language: ${language}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Detect language from file extension and content
+  detectLanguageFromFile(file: File): string {
+    const fileName = file.name.toLowerCase();
+    const extension = fileName.split('.').pop();
+    
+    // Check file extension first
+    switch (extension) {
+      case 'html':
+      case 'htm':
+        return 'html';
+      case 'sql':
+        return 'sql';
+      case 'js':
+      case 'jsx':
+      case 'ts':
+      case 'tsx':
+      case 'vue':
+      case 'php':
+      case 'py':
+      case 'java':
+      case 'cpp':
+      case 'c':
+      case 'cs':
+      case 'rb':
+      case 'go':
+      case 'rs':
+      case 'swift':
+      case 'kt':
+      case 'scala':
+      case 'r':
+      case 'm':
+      case 'pl':
+      case 'sh':
+      case 'bat':
+      case 'ps1':
+        return 'javascript';
+      case 'css':
+      case 'scss':
+      case 'sass':
+      case 'less':
+        return 'css';
+      case 'json':
+        return 'json';
+      case 'xml':
+        return 'xml';
+      case 'yml':
+      case 'yaml':
+        return 'yaml';
+      case 'md':
+      case 'markdown':
+        return 'markdown';
+      default:
+        // If no specific extension, try to detect from content
+        return 'javascript';
+    }
+  }
+
+  // Enhanced language detection from code content
+  detectLanguageFromCode(code: string): string {
+    const trimmedCode = code.trim();
+    
+    // HTML detection
+    if (trimmedCode.startsWith('<!DOCTYPE html') || 
+        trimmedCode.startsWith('<html') || 
+        trimmedCode.includes('<html') ||
+        trimmedCode.includes('<!DOCTYPE')) {
+      return 'html';
+    }
+    
+    // SQL detection
+    if (trimmedCode.toLowerCase().startsWith('select') || 
+        trimmedCode.toLowerCase().includes('from') ||
+        trimmedCode.toLowerCase().startsWith('insert') ||
+        trimmedCode.toLowerCase().startsWith('update') ||
+        trimmedCode.toLowerCase().startsWith('delete') ||
+        trimmedCode.toLowerCase().startsWith('create') ||
+        trimmedCode.toLowerCase().startsWith('drop') ||
+        trimmedCode.toLowerCase().startsWith('alter')) {
+      return 'sql';
+    }
+    
+    // CSS detection
+    if (trimmedCode.includes('{') && trimmedCode.includes('}') && 
+        (trimmedCode.includes('color:') || trimmedCode.includes('background:') || 
+         trimmedCode.includes('font-size:') || trimmedCode.includes('margin:') ||
+         trimmedCode.includes('padding:') || trimmedCode.includes('border:'))) {
+      return 'css';
+    }
+    
+    // JSON detection
+    if ((trimmedCode.startsWith('{') && trimmedCode.endsWith('}')) ||
+        (trimmedCode.startsWith('[') && trimmedCode.endsWith(']'))) {
+      try {
+        JSON.parse(trimmedCode);
+        return 'json';
+      } catch (e) {
+        // Not valid JSON, continue to other checks
+      }
+    }
+    
+    // YAML detection
+    if (trimmedCode.includes(':') && 
+        (trimmedCode.includes('version:') || trimmedCode.includes('name:') || 
+         trimmedCode.includes('description:') || trimmedCode.includes('dependencies:'))) {
+      return 'yaml';
+    }
+    
+    // Markdown detection
+    if (trimmedCode.startsWith('#') || 
+        trimmedCode.includes('##') || 
+        trimmedCode.includes('**') || 
+        trimmedCode.includes('*') ||
+        trimmedCode.includes('[') && trimmedCode.includes('](')) {
+      return 'markdown';
+    }
+    
+    // Default to JavaScript
+    return 'javascript';
+  }
+
+  // Types Manager erişim metodları
+  loadTypesModules(modules: string[]): void {
+    console.log('loadTypesModules is deprecated, use addCustomLib instead');
+  }
+
+  loadOnlyTypesModules(modules: string[]): void {
+    console.log('loadOnlyTypesModules is deprecated, use addCustomLib instead');
+  }
+
+  getLoadedTypesModules(): string[] {
+    return this.getLoadedLibs();
+  }
+
+  addCustomType(content: string, filename: string): void {
+    this.addCustomLib(content, filename);
+  }
+
+  removeCustomType(filename: string): void {
+    // This method is for backward compatibility
+    console.log('removeCustomType is deprecated, use removeCustomLib instead');
+  }
+
+  // Download menu toggle
+  toggleDownloadMenu() {
+    console.log('Toggle download menu clicked, current state:', this.showDownloadMenu);
+    this.showDownloadMenu = !this.showDownloadMenu;
+    console.log('New state:', this.showDownloadMenu);
+  }
+
+  // Close download menu
+  closeDownloadMenu() {
+    this.showDownloadMenu = false;
+  }
+
+  // Download file with appropriate extension
+  downloadFile() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      const script = this.scriptTemplates[this.selectedScriptIndex];
+      
+      // Get file extension based on language
+      let extension = 'js';
+      let mimeType = 'text/javascript';
+      
+      switch (language) {
+        case 'html':
+          extension = 'html';
+          mimeType = 'text/html';
+          break;
+        case 'sql':
+          extension = 'sql';
+          mimeType = 'text/sql';
+          break;
+        case 'javascript':
+        default:
+          extension = 'js';
+          mimeType = 'text/javascript';
+          break;
+      }
+      
+      // Create filename with script name
+      const filename = `${script.name.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
+      
+      // Create blob and download
+      const blob = new Blob([code], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`File downloaded: ${filename}`);
+      this.showDownloadMenu = false;
+    }
+  }
+
+  // Download all open tabs as ZIP
+  downloadAsZip() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      // Import JSZip dynamically
+      import('jszip').then((JSZip) => {
+        const zip = new JSZip.default();
+        
+        // Add current editor content
+        const code = this.editor.getValue();
+        const language = this.detectLanguageFromCode(code);
+        const script = this.scriptTemplates[this.selectedScriptIndex];
+        
+        let extension = 'js';
+        switch (language) {
+          case 'html':
+            extension = 'html';
+            break;
+          case 'sql':
+            extension = 'sql';
+            break;
+          case 'javascript':
+          default:
+            extension = 'js';
+            break;
+        }
+        
+        const filename = `${script.name.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
+        zip.file(filename, code);
+        
+        // Add all open tabs
+        this.openTabs.forEach((tab, index) => {
+          const tabLanguage = this.detectLanguageFromCode(tab.code);
+          let tabExtension = 'js';
+          switch (tabLanguage) {
+            case 'html':
+              tabExtension = 'html';
+              break;
+            case 'sql':
+              tabExtension = 'sql';
+              break;
+            case 'javascript':
+            default:
+              tabExtension = 'js';
+              break;
+          }
+          
+          const tabFilename = `${tab.name.replace(/[^a-zA-Z0-9]/g, '_')}.${tabExtension}`;
+          zip.file(tabFilename, tab.code);
+        });
+        
+        // Generate and download ZIP
+        zip.generateAsync({ type: 'blob' }).then((content: Blob) => {
+          const url = window.URL.createObjectURL(content);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'monaco_editor_files.zip';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('ZIP file downloaded: monaco_editor_files.zip');
+          this.showDownloadMenu = false;
+        });
+      }).catch((error) => {
+        console.error('Error creating ZIP:', error);
+        alert('ZIP oluşturulurken hata oluştu. Lütfen tekrar deneyin.');
+      });
+    }
+  }
+
+  // Initialize saved codes for all scripts
+  initializeSavedCodes() {
+    this.scriptTemplates.forEach((script, index) => {
+      const scriptKey = `script_${index}`;
+      this.lastSavedCodeByTab[scriptKey] = script.code;
+      this.originalCodeByTab[scriptKey] = script.code;
+    });
+  }
+
+  // Show save confirmation modal
+  showSaveConfirmationModal() {
+    this.showSaveConfirmation = true;
   }
 }
