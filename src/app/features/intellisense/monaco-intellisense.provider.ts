@@ -370,6 +370,17 @@ declare global {
    */
   var self: ThisContext;
 }
+  userService: {
+    /**
+     * Şu anki kullanıcıyı döner
+     */
+    getCurrentUser(): { id: string; name: string; email: string };
+
+    /**
+     * Kullanıcı oturumda mı
+     */
+    isLoggedIn(): boolean;
+  };
 
 export {};
 `,
@@ -424,6 +435,9 @@ declare global {
    * Global events object
    */
   var events: ThisContext['events'];
+
+    var userService: ThisContext['userService'];
+
   
   /**
    * Open a new window or tab
@@ -505,6 +519,11 @@ declare global {
      * Custom window property
      */
     customProperty: string;
+
+    /**
+   * Kullanıcı servisi
+   */
+  var userService: ThisContext['userService'];
     
     /**
      * Custom window method
@@ -702,6 +721,15 @@ function registerCompletionProviders(monaco: any): void {
     triggerCharacters: ['.', ' '],
     provideCompletionItems: (model: any, position: any) => {
       const suggestions = [
+
+        {
+          label: 'userService',
+          kind: monaco.languages.CompletionItemKind.Variable,
+          insertText: 'userService',
+          detail: 'Kullanıcı Servisi',
+          documentation: 'Oturum ve kullanıcı işlemleri için servis',
+          sortText: '20'
+        },        
         // this. context suggestions
         {
           label: 'this',
@@ -1148,6 +1176,27 @@ function registerMethodCompletions(monaco: any): void {
           ]
         };
       }
+      if (textUntilPosition.endsWith('userService.')) {
+        return {
+          suggestions: [
+            {
+              label: 'getCurrentUser',
+              kind: monaco.languages.CompletionItemKind.Method,
+              insertText: 'getCurrentUser()',
+              detail: 'Şu anki kullanıcıyı döner',
+              documentation: 'Aktif kullanıcı bilgilerini getirir'
+            },
+            {
+              label: 'isLoggedIn',
+              kind: monaco.languages.CompletionItemKind.Method,
+              insertText: 'isLoggedIn()',
+              detail: 'Kullanıcı oturumda mı',
+              documentation: 'Kullanıcının oturum durumu'
+            }
+          ]
+        };
+      }
+      
       
       // Check if we're after "this.record."
       if (textUntilPosition.endsWith('this.record.')) {
