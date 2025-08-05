@@ -11,8 +11,6 @@ import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../fea
 import { formatWithPrettier } from '../features/prettier/prettier-format.util';
 import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
-import { registerHTMLLanguage } from '../features/language/html-language.provider';
-import { registerSQLLanguage } from '../features/language/sql-language.provider';
 import { validateHTML } from '../features/language/html-validation.util';
 import { validateSQL } from '../features/language/sql-validation.util';
 
@@ -377,10 +375,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       window.require(['vs/editor/editor.main'], () => {
         // Monaco Editor dil modüllerini kaydet
         if (window.monaco) {
-          // HTML ve SQL dil desteğini kaydet
-          registerHTMLLanguage(window.monaco);
-          registerSQLLanguage(window.monaco);
-          
           // IntelliSense provider'ı başlat
           this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
         }
