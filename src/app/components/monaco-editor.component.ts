@@ -363,7 +363,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     }
     if (typeof window.require === 'function') {
       window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-      window.MonacoEnvironment = {
+      (window as any).MonacoEnvironment = {
         getWorkerUrl: function (workerId: string, label: string) {
           const baseUrl = window.location.origin + '/assets/monaco';
           return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
@@ -981,7 +981,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // IntelliSense Provider erişim metodları
   addCustomLib(content: string, targetFileSrc: string): void {
     if (this.intelliSenseProvider) {
-      this.intelliSenseProvider.addLib({ content, targetFileSrc });
+      this.intelliSenseProvider.addLibOld({ content, targetFileSrc });
       this.intelliSenseProvider.loadLib(targetFileSrc);
     }
   }

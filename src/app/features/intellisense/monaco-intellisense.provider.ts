@@ -1,77 +1,82 @@
 // --- MonacoContextRegistry.ts ---
 
-export interface ThisContext {
-  recordService: {
-    id: number;
-    name: string;
-    getRecords: () => any[];
-  };
-  form: {
-    getValue: (field: string) => any;
-    setValue: (field: string, value: any) => void;
-  };
-  dialog: {
-    alert: (msg: string) => void;
-    confirm: (msg: string) => boolean;
-  };
-
-  myService: {
-    fetchData: (url: string) => Promise<any>;
-    clearCache: () => void;
-  };
-}
-
 export interface MonacoContextRegistryOptions {
   monaco: any;
+  /** Optional folder to load static .d.ts files from */
+  staticDefinitionsPath?: string;
+}
+
+export interface GlobalBinding<T = any> {
+  /** Global name (e.g. 'recordService') */
+  name: string;
+  /** Runtime value for internal use */
+  value: T;
+  /** Explicit .d.ts content for strong typing */
+  definition: string;
 }
 
 export class MonacoContextRegistry {
   private monaco: any;
   private registered: Set<string> = new Set();
+  private bindings: GlobalBinding[] = [];
 
   constructor(options: MonacoContextRegistryOptions) {
     this.monaco = options.monaco;
+    // Load static definitions if provided
+    if (options.staticDefinitionsPath) {
+      this.loadStaticDefinitions(options.staticDefinitionsPath);
+    }
   }
 
   /**
-   * Register a global variable with Monaco IntelliSense
+   * Load all .d.ts files in a folder for static typings
    */
-  register(name: string, obj: object): void {
+  private loadStaticDefinitions(folder: string): void {
+    try {
+      // Note: fs is not available in browser, so we'll skip this for now
+      console.log(`[MonacoContextRegistry] Static definitions path provided: ${folder}`);
+    } catch (err) {
+      console.error(`[MonacoContextRegistry] Failed to load static definitions:`, err);
+    }
+  }
+
+  /**
+   * Register a binding with explicit definition
+   */
+  registerBinding<T>(binding: GlobalBinding<T>): void {
+    const { name, definition } = binding;
     if (this.registered.has(name)) return;
-    const typeDef = this.generateTypeDefinition(name, obj);
-    this.monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDef, `${name}.d.ts`);
-    this.monaco.languages.typescript.typescriptDefaults.addExtraLib(typeDef, `${name}.d.ts`);
+    this.monaco.languages.typescript.javascriptDefaults.addExtraLib(definition, `${name}.d.ts`);
+    this.monaco.languages.typescript.typescriptDefaults.addExtraLib(definition, `${name}.d.ts`);
     this.registered.add(name);
+    this.bindings.push(binding);
     console.log(`[MonacoContextRegistry] Registered: ${name}`);
   }
 
   /**
-   * Dynamically generate a global variable declaration for the given object
+   * Shorthand: supply runtime object and fallback definition generator
+   */
+  register(name: string, obj: object, definition?: string): void {
+    if (definition) {
+      this.registerBinding({ name, value: obj, definition });
+    } else {
+      const autoDef = this.generateTypeDefinition(name, obj);
+      this.registerBinding({ name, value: obj, definition: autoDef });
+    }
+  }
+
+  /**
+   * Generate a .d.ts for object shape. For deep shapes, use static .d.ts files.
    */
   private generateTypeDefinition(name: string, obj: object): string {
-    const fields = Object.entries(obj).map(([key, value]) => {
-      const type = this.inferType(value);
-      return `  ${key}: ${type};`;
-    });
+    const fields = Object.keys(obj)
+      .map(key => `  ${key}: any; // inferred placeholder`)
+      .join("\n");
 
     if (name === 'this') {
       return `
 declare global {
-  var this: {
-    recordService: {
-      id: number;
-      name: string;
-      getRecords: () => any[];
-    };
-    form: {
-      getValue: (field: string) => any;
-      setValue: (field: string, value: any) => void;
-    };
-    dialog: {
-      alert: (msg: string) => void;
-      confirm: (msg: string) => boolean;
-    };
-  };
+  var this: any; // preserved global context
 }
 export {};`;
     }
@@ -79,44 +84,30 @@ export {};`;
     return `
 declare global {
   var ${name}: {
-${fields.join('\n')}
+${fields}
   };
 }
 export {};`;
   }
 
   /**
-   * Very basic JS to TS type inference
+   * List of all registered global names
    */
-  private inferType(value: any): string {
-    const rawType = typeof value;
-    if (rawType === 'function') {
-      return value.length > 0 ? '(...args: any[]) => any' : '() => any';
-    }
-    if (rawType === 'number') return 'number';
-    if (rawType === 'boolean') return 'boolean';
-    if (rawType === 'string') return 'string';
-    if (rawType === 'object') {
-      if (Array.isArray(value)) return 'any[]';
-      if (value === null) return 'any';
-      // Nested object için daha detaylı analiz
-      if (value && typeof value === 'object') {
-        const fields = Object.entries(value).map(([key, val]) => {
-          const type = this.inferType(val);
-          return `${key}: ${type}`;
-        });
-        return `{ ${fields.join('; ')} }`;
-      }
-      return '{ [key: string]: any }';
-    }
-    return 'any';
+  getRegisteredBindings(): string[] {
+    return [...this.registered];
   }
 
   /**
-   * Register multiple globals at once
+   * Remove a previously registered lib
    */
-  registerMany(entries: Record<string, object>): void {
-    Object.entries(entries).forEach(([name, obj]) => this.register(name, obj));
+  deregister(name: string): void {
+    if (!this.registered.has(name)) return;
+    const fileName = `${name}.d.ts`;
+    this.monaco.languages.typescript.javascriptDefaults.removeExtraLib(fileName);
+    this.monaco.languages.typescript.typescriptDefaults.removeExtraLib(fileName);
+    this.registered.delete(name);
+    this.bindings = this.bindings.filter(b => b.name !== name);
+    console.log(`[MonacoContextRegistry] Deregistered: ${name}`);
   }
 }
 
@@ -125,17 +116,13 @@ export {};`;
 export class MonacoIntelliSenseProvider {
   private monaco: any;
   private registry: MonacoContextRegistry;
-  private loadedLibs: Map<string, any> = new Map();
-  private allLibs: any[] = [];
+  private loadedLibs: Map<string, GlobalBinding> = new Map();
 
-  constructor(monaco: any) {
+  constructor(monaco: any, staticDefsPath?: string) {
     this.monaco = monaco;
-    this.registry = new MonacoContextRegistry({ monaco });
+    this.registry = new MonacoContextRegistry({ monaco, staticDefinitionsPath: staticDefsPath });
   }
 
-  /**
-   * Configure TS/JS defaults for better IntelliSense
-   */
   private configureCompiler(): void {
     const tsDefaults = this.monaco.languages.typescript.typescriptDefaults;
     const jsDefaults = this.monaco.languages.typescript.javascriptDefaults;
@@ -153,79 +140,80 @@ export class MonacoIntelliSenseProvider {
     jsDefaults.setEagerModelSync(true);
   }
 
-  /**
-   * Initialize IntelliSense with default globals and compiler settings
-   */
   initialize(): void {
     this.configureCompiler();
 
-    // Core global bindings
-    this.registry.register('myService', {
-      fetchData: async (url: string) => { /*…*/ },
-      clearCache: () => { /*…*/ },
-    });
+    // Example of registering core globals with static definitions
+    this.registry.register('recordService',
+      { id: 1, name: 'RecordService', getRecords: () => [] },
+      // Hint: content can be moved to a file under staticDefsPath
+      `declare global { var recordService: { id: number; name: string; getRecords(): any[]; }; } export {};`
+    );
 
-    this.registry.register('recordService', {
-      id: 1,
-      name: 'RecordService',
-      getRecords: () => [] as any[],
-    });
+    this.registry.register('form',
+      { getValue: (f: string) => '', setValue: (f: string, v: any) => {} },
+      `declare global { var form: { getValue(field: string): any; setValue(field: string, value: any): void; }; } export {};`
+    );
 
-    // Form service
-    this.registry.register('form', {
-      getValue: (field: string) => '',
-      setValue: (field: string, value: any) => {},
-    });
+    this.registry.register('dialog',
+      { alert: (m: string) => {}, confirm: (m: string) => true },
+      `declare global { var dialog: { alert(msg: string): void; confirm(msg: string): boolean; }; } export {};`
+    );
 
-    // Dialog service
-    this.registry.register('dialog', {
-      alert: (msg: string) => {},
-      confirm: (msg: string) => true,
-    });
+    this.registry.register('myService',
+      { fetchData: async (u: string) => [], clearCache: () => {} },
+      `declare global { var myService: { fetchData(url: string): Promise<any>; clearCache(): void; }; } export {};`
+    );
+   // --- inside initialize() ---
+this.registry.register(
+  'yeniService',
+  {
+    fetchData: async (url: string) => { /* … */ return []; },
+    clearCache: () => { /* … */ }
+  },
+  // Tip tanımını buraya yazıyoruz
+  `declare global {
+     var yeniService: {
+       fetchData(url: string): Promise<any[]>;
+       clearCache(): void;
+     };
+   }
+   export {};`
+);
 
-    this.registry.register('this', {
-      recordService: { id: 1, name: 'RecordService', getRecords: () => [] as any[] },
-      form: { getValue: (field: string) => '', setValue: (field: string, value: any) => {} },
-      dialog: { alert: (msg: string) => {}, confirm: (msg: string) => true },
-      myService: { fetchData: async (u) => [], clearCache: () => {}
-    });
 
-    console.log('[MonacoIntelliSenseProvider] Initialized with global bindings');
+    // Preserve special 'this' global
+    this.registry.registerBinding({ name: 'this', value: (globalThis as any), definition: `declare global { var this: any; } export {};` });
+
+    console.log('[MonacoIntelliSenseProvider] Initialized with static and dynamic global bindings');
   }
 
   /**
-   * Expose registry for custom globals
+   * Add a new lib at runtime
    */
-  registerGlobals(globals: Record<string, object>): void {
-    this.registry.registerMany(globals);
+  addLib(binding: GlobalBinding): void {
+    this.registry.registerBinding(binding);
+    this.loadedLibs.set(binding.name, binding);
+    
   }
 
-  registerGlobal(name: string, obj: object): void {
-    this.registry.register(name, obj);
-  }
-
-  getRegistry(): MonacoContextRegistry {
-    return this.registry;
-  }
-
-  addLib(lib: { content: string; targetFileSrc: string }): void {
-    try {
-      this.monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, lib.targetFileSrc);
-      this.monaco.languages.typescript.typescriptDefaults.addExtraLib(lib.content, lib.targetFileSrc);
-      this.loadedLibs.set(lib.targetFileSrc, lib);
-      this.allLibs.push(lib);
-      console.log(`[MonacoIntelliSenseProvider] Added lib: ${lib.targetFileSrc}`);
-    } catch (error) {
-      console.error(`[MonacoIntelliSenseProvider] Error adding lib: ${lib.targetFileSrc}`, error);
-    }
+  // Backward compatibility method
+  addLibOld(lib: { content: string; targetFileSrc: string }): void {
+    const binding: GlobalBinding = {
+      name: lib.targetFileSrc.replace('.d.ts', ''),
+      value: {},
+      definition: lib.content
+    };
+    this.registry.registerBinding(binding);
+    this.loadedLibs.set(binding.name, binding);
   }
 
   loadLib(targetFileSrc: string): void {
-    const lib = this.loadedLibs.get(targetFileSrc);
+    const lib = this.loadedLibs.get(targetFileSrc.replace('.d.ts', ''));
     if (lib) {
       try {
-        this.monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, targetFileSrc);
-        this.monaco.languages.typescript.typescriptDefaults.addExtraLib(lib.content, targetFileSrc);
+        this.monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.definition, targetFileSrc);
+        this.monaco.languages.typescript.typescriptDefaults.addExtraLib(lib.definition, targetFileSrc);
         console.log(`[MonacoIntelliSenseProvider] Loaded lib: ${targetFileSrc}`);
       } catch (error) {
         console.error(`[MonacoIntelliSenseProvider] Error loading lib: ${targetFileSrc}`, error);
@@ -233,41 +221,36 @@ export class MonacoIntelliSenseProvider {
     }
   }
 
-  removeLib(targetFileSrc: string): void {
-    try {
-      this.monaco.languages.typescript.javascriptDefaults.removeExtraLib(targetFileSrc);
-      this.monaco.languages.typescript.typescriptDefaults.removeExtraLib(targetFileSrc);
-      this.loadedLibs.delete(targetFileSrc);
-      this.allLibs = this.allLibs.filter(lib => lib.targetFileSrc !== targetFileSrc);
-      console.log(`[MonacoIntelliSenseProvider] Removed lib: ${targetFileSrc}`);
-    } catch (error) {
-      console.error(`[MonacoIntelliSenseProvider] Error removing lib: ${targetFileSrc}`, error);
-    }
+  /**
+   * Remove a loaded lib
+   */
+  removeLib(name: string): void {
+    this.registry.deregister(name);
+    this.loadedLibs.delete(name);
   }
 
   getLoadedLibs(): string[] {
-    return Array.from(this.loadedLibs.keys());
+    return [...this.loadedLibs.keys()];
   }
 
   getAllLibs(): any[] {
-    return [...this.allLibs];
+    return Array.from(this.loadedLibs.values());
   }
 
   clearAllLibs(): void {
-    this.loadedLibs.forEach((_, src) => {
-      this.monaco.languages.typescript.javascriptDefaults.removeExtraLib(src);
-      this.monaco.languages.typescript.typescriptDefaults.removeExtraLib(src);
-    });
+    this.loadedLibs.forEach((_, name) => this.registry.deregister(name));
     this.loadedLibs.clear();
-    this.allLibs = [];
     console.log('[MonacoIntelliSenseProvider] Cleared all libs');
   }
 }
 
 // --- initializeMonacoIntelliSense.ts ---
 
-export function initializeMonacoIntelliSense(monaco: any): MonacoIntelliSenseProvider {
-  const provider = new MonacoIntelliSenseProvider(monaco);
+/**
+ * Initialize with optional path to static .d.ts definitions
+ */
+export function initializeMonacoIntelliSense(monaco: any, staticDefsPath?: string): MonacoIntelliSenseProvider {
+  const provider = new MonacoIntelliSenseProvider(monaco, staticDefsPath);
   provider.initialize();
   return provider;
 }
