@@ -14,6 +14,11 @@ export interface ThisContext {
     alert: (msg: string) => void;
     confirm: (msg: string) => boolean;
   };
+
+  myService: {
+    fetchData: (url: string) => Promise<any>;
+    clearCache: () => void;
+  };
 }
 
 export interface MonacoContextRegistryOptions {
@@ -155,6 +160,11 @@ export class MonacoIntelliSenseProvider {
     this.configureCompiler();
 
     // Core global bindings
+    this.registry.register('myService', {
+      fetchData: async (url: string) => { /*…*/ },
+      clearCache: () => { /*…*/ },
+    });
+
     this.registry.register('recordService', {
       id: 1,
       name: 'RecordService',
@@ -177,6 +187,7 @@ export class MonacoIntelliSenseProvider {
       recordService: { id: 1, name: 'RecordService', getRecords: () => [] as any[] },
       form: { getValue: (field: string) => '', setValue: (field: string, value: any) => {} },
       dialog: { alert: (msg: string) => {}, confirm: (msg: string) => true },
+      myService: { fetchData: async (u) => [], clearCache: () => {}
     });
 
     console.log('[MonacoIntelliSenseProvider] Initialized with global bindings');
