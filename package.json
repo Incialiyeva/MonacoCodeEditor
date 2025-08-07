@@ -40,7 +40,6 @@
     "sql.js": "^1.13.0",
     "tslib": "^2.3.0",
     "vscode-css-languageservice": "^6.3.7",
-    "vscode-html-languageservice": "^5.5.1",
     "vscode-languageserver": "^9.0.1"
   },
   "devDependencies": {
