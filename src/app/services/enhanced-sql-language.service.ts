@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { format } from 'sql-formatter';
+import * as prettier from 'prettier/standalone';
+import sqlPlugin from 'prettier-plugin-sql';
 
 export interface SQLValidationResult {
   isValid: boolean;
@@ -324,13 +325,15 @@ export class EnhancedSQLLanguageService {
 
   private provideDocumentFormattingEdits(model: any, options: any): any {
     try {
-      const formattedSQL = format(model.getValue(), {
-        language: 'sql',
+      const formattedSQL = prettier.format(model.getValue(), {
+        parser: 'sql',
+        plugins: [sqlPlugin],
         tabWidth: options.tabSize || 2,
         useTabs: false,
         keywordCase: 'upper',
         dataTypeCase: 'upper',
-        functionCase: 'upper'
+        functionCase: 'upper',
+        printWidth: 100
       });
 
       return [

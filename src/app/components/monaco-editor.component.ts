@@ -100,7 +100,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Toolbar visibility control
   showToolbar = false;
 
-  // Debug properties - eksik olan property'leri ekliyorum
+  // Debug panel visibility
   showVariablesPanel = false;
   showCallStackPanel = false;
   debugCallStack: any[] = [];
@@ -692,10 +692,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         renderer: this.renderer
       });
     }
-  }
-
-  selectTab(idx: number) {
-    // Artık kullanılmıyor, universal fonksiyon var
   }
 
   formatDocument() {
@@ -1339,18 +1335,6 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   }
 
   // Types Manager erişim metodları
-  loadTypesModules(modules: string[]): void {
-    console.log('loadTypesModules is deprecated, use addCustomLib instead');
-  }
-
-  loadOnlyTypesModules(modules: string[]): void {
-    console.log('loadOnlyTypesModules is deprecated, use addCustomLib instead');
-  }
-
-  getLoadedTypesModules(): string[] {
-    return this.getLoadedLibs();
-  }
-
   addCustomType(content: string, filename: string): void {
     this.addCustomLib(content, filename);
   }
