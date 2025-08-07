@@ -13,6 +13,9 @@ import { showMonacoDiff } from '../features/diff/monaco-diff.util';
 import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
 import { validateHTML } from '../features/language/html-validation.util';
 import { validateSQL } from '../features/language/sql-validation.util';
+import { SQLExecutorService, SQLResult } from '../services/sql-executor.service';
+import { MonacoLanguageRegistryService } from '../services/monaco-language-registry.service';
+import { EnhancedSQLLanguageService } from '../services/enhanced-sql-language.service';
 
 interface EditorTab {
   name: string;
@@ -245,7 +248,10 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     @Inject(PLATFORM_ID) private platformId: Object,
     @Inject(DomSanitizer) private sanitizer: DomSanitizer | null = null,
     private renderer: Renderer2,
-    private hostRef: ElementRef
+    private hostRef: ElementRef,
+    private sqlExecutor: SQLExecutorService,
+    private monacoLanguageRegistry: MonacoLanguageRegistryService,
+    private enhancedSQLService: EnhancedSQLLanguageService
   ) {
     // openTabs ve activeTab burada kalabilir
     this.openTabs = [
@@ -395,13 +401,16 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         }
       };
       window.require(['vs/editor/editor.main'], () => {
-        // Monaco Editor dil modüllerini kaydet
-        if (window.monaco) {
-          // IntelliSense provider'ı başlat
-          this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
-        }
+        // Monaco Editor dil modüllerini yükle ve yapılandır
+        this.configureMonacoLanguages();
+        
+        // FULL Language Service Support
+        this.monacoLanguageRegistry.initializeLanguageServices(window.monaco);
+        this.enhancedSQLService.registerSQLLanguageService(window.monaco);
+        
+        // IntelliSense Provider'ı initialize et
+        this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
 
-        // Seçilen script template'ini al
         const selectedScript = this.scriptTemplates[this.selectedScriptIndex];
         if (selectedScript) {
           const language = this.detectLanguageFromCode(selectedScript.code);
@@ -422,16 +431,42 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             acceptSuggestionOnCommitCharacter: true,
             acceptSuggestionOnEnter: 'on',
             tabCompletion: 'on',
-            wordBasedSuggestions: true,
+            wordBasedSuggestions: 'currentDocument',
             parameterHints: {
-              enabled: true
+              enabled: true,
+              cycle: true
             },
             suggest: {
               localityBonus: true,
               snippetsPreventQuickSuggestions: false,
               showIcons: true,
               maxVisibleSuggestions: 12,
-              insertMode: 'replace'
+              insertMode: 'replace',
+              filterGraceful: true,
+              showKeywords: true,
+              showSnippets: true,
+              showWords: true,
+              showClasses: true,
+              showFunctions: true,
+              showConstructors: true,
+              showFields: true,
+              showVariables: true,
+              showInterfaces: true,
+              showModules: true,
+              showProperties: true,
+              showEvents: true,
+              showOperators: true,
+              showUnits: true,
+              showValues: true,
+              showConstants: true,
+              showEnums: true,
+              showEnumMembers: true,
+              showReferences: true,
+              showFolders: true,
+              showTypeParameters: true,
+              showIssues: true,
+              showUsers: true,
+              showColors: true
             },
             // TypeScript/JavaScript için özel ayarlar
             typescript: {
@@ -447,6 +482,44 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
                 includeCompletionsWithSnippetText: true,
                 includeCompletionsWithInsertText: true
               }
+            },
+            // VS Code benzeri özellikler
+            folding: true,
+            foldingStrategy: 'auto',
+            showFoldingControls: 'always',
+            unfoldOnClickAfterEndOfLine: false,
+            foldingHighlight: true,
+            foldingImportsByDefault: false,
+            links: true,
+            colorDecorators: true,
+            lightbulb: {
+              enabled: true
+            },
+            codeActionsOnSave: {
+              'source.organizeImports': true
+            },
+            formatOnPaste: true,
+            formatOnType: true,
+            autoIndent: 'full',
+            bracketPairColorization: {
+              enabled: true
+            },
+            guides: {
+              bracketPairs: 'active',
+              bracketPairsHorizontal: 'active',
+              highlightActiveBracketPair: true,
+              indentation: true,
+              highlightActiveIndentation: true
+            },
+            unicodeHighlight: {
+              ambiguousCharacters: true,
+              invisibleCharacters: true
+            },
+            inlineSuggest: {
+              enabled: true
+            },
+            stickyScroll: {
+              enabled: true
             }
           });
           
@@ -1591,57 +1664,133 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     }
   }
 
-  // SQL validation and mock execution
+  // SQL execution with real SQLite database
   private async runSQL(code: string) {
-    this.runOutput += 'Validating and executing SQL...\n';
+    this.runOutput += 'Connecting to SQL database...\n';
     
     try {
-      // SQL validation
+      // SQL validation (gevşek)
       const validation = validateSQL(code);
       
       if (!validation.isValid) {
-        this.runOutput += '\nSQL Validation Errors:\n';
+        this.runOutput += '\nSQL Validation Warnings:\n';
         validation.errors.forEach(error => {
-          this.runOutput += `- ${error}\n`;
+          this.runOutput += `⚠️ ${error}\n`;
         });
+        this.runOutput += '\n📄 Continuing execution...\n\n';
+      } else {
+        this.runOutput += '✅ SQL validation passed!\n\n';
+      }
+      
+      // Gerçek SQL execution
+      this.runOutput += '🚀 Executing SQL statements...\n\n';
+      const result: SQLResult = await this.sqlExecutor.executeSQL(code);
+      
+      if (!result.success) {
+        this.runOutput += `❌ SQL Execution Error:\n${result.error}\n`;
         return;
       }
       
-      this.runOutput += 'SQL validation passed!\n';
-      
-      // Mock SQL execution
-      const sqlType = this.detectSQLType(code);
-      this.runOutput += `\nDetected SQL Type: ${sqlType}\n`;
-      
-      switch (sqlType.toLowerCase()) {
-        case 'select':
-          this.runOutput += '\nMock Result Set:\n';
-          this.runOutput += '| id | name          | email               | active |\n';
-          this.runOutput += '|----|---------------|---------------------|--------|\n';
-          this.runOutput += '| 1  | John Doe      | john@example.com    | 1      |\n';
-          this.runOutput += '| 2  | Jane Smith    | jane@example.com    | 1      |\n';
-          this.runOutput += '| 3  | Bob Johnson   | bob@example.com     | 0      |\n';
-          this.runOutput += '\n(3 rows affected)\n';
-          break;
-        case 'insert':
-          this.runOutput += '\nMock Insert Result:\n';
-          this.runOutput += '1 row(s) inserted successfully.\n';
-          this.runOutput += 'New record ID: 42\n';
-          break;
-        case 'update':
-          this.runOutput += '\nMock Update Result:\n';
-          this.runOutput += '2 row(s) updated successfully.\n';
-          break;
-        case 'delete':
-          this.runOutput += '\nMock Delete Result:\n';
-          this.runOutput += '1 row(s) deleted successfully.\n';
-          break;
-        default:
-          this.runOutput += '\nSQL command executed successfully!\n';
-      }
+      // Sonuçları formatla ve göster
+      this.displaySQLResults(result);
       
     } catch (error: any) {
-      this.runOutput += `\nSQL Execution Error: ${error.message}\n`;
+      this.runOutput += `\n💥 Unexpected Error: ${error.message}\n`;
+    }
+  }
+
+  private displaySQLResults(result: SQLResult): void {
+    if (!result.data || result.data.length === 0) {
+      this.runOutput += '✅ SQL executed successfully (no results to display)\n';
+      return;
+    }
+
+    result.data.forEach((statementResult, index) => {
+      this.runOutput += `--- Statement ${index + 1} ---\n`;
+      
+      if (statementResult.columns && statementResult.values) {
+        // SELECT sorgusu - tablo formatında göster
+        this.runOutput += this.formatResultTable(statementResult.columns, statementResult.values);
+        this.runOutput += `\n📊 ${statementResult.values.length} row(s) returned\n\n`;
+        
+      } else if (statementResult.rowsAffected !== undefined) {
+        // INSERT, UPDATE, DELETE, CREATE vs.
+        const statement = statementResult.statement.trim().toUpperCase();
+        
+        if (statement.startsWith('CREATE TABLE')) {
+          const tableMatch = statement.match(/CREATE\s+TABLE\s+(\w+)/i);
+          const tableName = tableMatch ? tableMatch[1] : 'table';
+          this.runOutput += `✅ Table '${tableName}' created successfully\n\n`;
+          
+        } else if (statement.startsWith('INSERT')) {
+          this.runOutput += `✅ ${statementResult.rowsAffected} row(s) inserted\n\n`;
+          
+        } else if (statement.startsWith('UPDATE')) {
+          this.runOutput += `✅ ${statementResult.rowsAffected} row(s) updated\n\n`;
+          
+        } else if (statement.startsWith('DELETE')) {
+          this.runOutput += `✅ ${statementResult.rowsAffected} row(s) deleted\n\n`;
+          
+        } else {
+          this.runOutput += `✅ Statement executed successfully\n\n`;
+        }
+      }
+    });
+    
+    this.runOutput += `⏱️ Execution completed in ${result.executionTime?.toFixed(2)}ms\n`;
+    
+    // Mevcut tabloları göster
+    this.showCurrentTables();
+  }
+
+  private formatResultTable(columns: string[], values: any[][]): string {
+    if (values.length === 0) {
+      return '(No results)\n';
+    }
+
+    // Kolon genişliklerini hesapla
+    const columnWidths = columns.map((col, index) => {
+      const maxValueWidth = Math.max(...values.map(row => String(row[index] || '').length));
+      return Math.max(col.length, maxValueWidth, 3);
+    });
+
+    // Header satırı
+    let table = '| ';
+    columns.forEach((col, index) => {
+      table += col.padEnd(columnWidths[index]) + ' | ';
+    });
+    table += '\n';
+
+    // Separator satırı
+    table += '|';
+    columnWidths.forEach(width => {
+      table += '-'.repeat(width + 2) + '|';
+    });
+    table += '\n';
+
+    // Data satırları
+    values.forEach(row => {
+      table += '| ';
+      row.forEach((cell, index) => {
+        const cellStr = String(cell || '');
+        table += cellStr.padEnd(columnWidths[index]) + ' | ';
+      });
+      table += '\n';
+    });
+
+    return table;
+  }
+
+  private async showCurrentTables(): Promise<void> {
+    try {
+      const tables = await this.sqlExecutor.getTables();
+      if (tables.length > 0) {
+        this.runOutput += `\n📋 Current tables in database: ${tables.join(', ')}\n`;
+      } else {
+        this.runOutput += `\n📋 No tables in database\n`;
+      }
+    } catch (error) {
+      console.error('Error getting tables:', error);
     }
   }
 
@@ -1847,14 +1996,54 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   // Detect SQL statement type
   private detectSQLType(sql: string): string {
-    const trimmed = sql.trim().toUpperCase();
-    if (trimmed.startsWith('SELECT')) return 'SELECT';
-    if (trimmed.startsWith('INSERT')) return 'INSERT';
-    if (trimmed.startsWith('UPDATE')) return 'UPDATE';
-    if (trimmed.startsWith('DELETE')) return 'DELETE';
-    if (trimmed.startsWith('CREATE')) return 'CREATE';
-    if (trimmed.startsWith('DROP')) return 'DROP';
-    if (trimmed.startsWith('ALTER')) return 'ALTER';
+    // Yorumları ve boş satırları filtrele, sonra ilk SQL statement'ı bul
+    const lines = sql.split('\n');
+    const sqlStatements: string[] = [];
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Yorum satırlarını ve boş satırları atla
+      if (!trimmed || trimmed.startsWith('--')) {
+        continue;
+      }
+      sqlStatements.push(trimmed);
+    }
+    
+    // Tüm SQL statement'ları birleştir ve ilk keyword'ü bul
+    const fullSQL = sqlStatements.join(' ').trim().toUpperCase();
+    
+    if (fullSQL.startsWith('SELECT')) return 'SELECT';
+    if (fullSQL.startsWith('INSERT')) return 'INSERT';
+    if (fullSQL.startsWith('UPDATE')) return 'UPDATE';
+    if (fullSQL.startsWith('DELETE')) return 'DELETE';
+    if (fullSQL.startsWith('CREATE TABLE')) return 'CREATE TABLE';
+    if (fullSQL.startsWith('CREATE INDEX')) return 'CREATE INDEX';
+    if (fullSQL.startsWith('CREATE VIEW')) return 'CREATE VIEW';
+    if (fullSQL.startsWith('CREATE')) return 'CREATE';
+    if (fullSQL.startsWith('DROP TABLE')) return 'DROP TABLE';
+    if (fullSQL.startsWith('DROP INDEX')) return 'DROP INDEX';
+    if (fullSQL.startsWith('DROP')) return 'DROP';
+    if (fullSQL.startsWith('ALTER TABLE')) return 'ALTER TABLE';
+    if (fullSQL.startsWith('ALTER')) return 'ALTER';
+    
+    // Eğer birden fazla statement varsa, hepsini listele
+    const statements = fullSQL.split(';').filter(s => s.trim());
+    if (statements.length > 1) {
+      const types = statements.map(stmt => {
+        const trimmedStmt = stmt.trim();
+        if (trimmedStmt.startsWith('CREATE TABLE')) return 'CREATE TABLE';
+        if (trimmedStmt.startsWith('INSERT')) return 'INSERT';
+        if (trimmedStmt.startsWith('SELECT')) return 'SELECT';
+        if (trimmedStmt.startsWith('UPDATE')) return 'UPDATE';
+        if (trimmedStmt.startsWith('DELETE')) return 'DELETE';
+        return 'OTHER';
+      }).filter(type => type !== 'OTHER');
+      
+      if (types.length > 0) {
+        return `MULTIPLE (${types.join(', ')})`;
+      }
+    }
+    
     return 'UNKNOWN';
   }
 
@@ -2581,5 +2770,352 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       { name: 'validateInput()', file: 'script.js', line: 3 }
     ];
     this.debugCallStack = callStack;
+  }
+
+  // Monaco Editor dil yapılandırması
+  private configureMonacoLanguages(): void {
+    if (!window.monaco) return;
+
+    // HTML için gelişmiş yapılandırma
+    this.configureHTMLSupport();
+    
+    // SQL için gelişmiş yapılandırma
+    this.configureSQLSupport();
+  }
+
+  private configureHTMLSupport(): void {
+    const monaco = window.monaco;
+    
+    // HTML için completion provider
+    monaco.languages.registerCompletionItemProvider('html', {
+      provideCompletionItems: (model: any, position: any) => {
+        const suggestions = [
+          // HTML5 semantic tags
+          {
+            label: 'article',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<article>\n\t$0\n</article>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 article element'
+          },
+          {
+            label: 'section',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<section>\n\t$0\n</section>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 section element'
+          },
+          {
+            label: 'header',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<header>\n\t$0\n</header>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 header element'
+          },
+          {
+            label: 'footer',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<footer>\n\t$0\n</footer>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 footer element'
+          },
+          {
+            label: 'nav',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<nav>\n\t$0\n</nav>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 navigation element'
+          },
+          {
+            label: 'main',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<main>\n\t$0\n</main>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 main content element'
+          },
+          {
+            label: 'aside',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<aside>\n\t$0\n</aside>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML5 aside element'
+          },
+          // Form elements
+          {
+            label: 'form',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<form action="$1" method="$2">\n\t$0\n</form>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML form element'
+          },
+          {
+            label: 'input',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<input type="$1" name="$2" id="$3" />',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML input element'
+          },
+          {
+            label: 'button',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: '<button type="$1">$0</button>',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'HTML button element'
+          },
+          // Common attributes
+          {
+            label: 'class',
+            kind: monaco.languages.CompletionItemKind.Property,
+            insertText: 'class="$1"',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'CSS class attribute'
+          },
+          {
+            label: 'id',
+            kind: monaco.languages.CompletionItemKind.Property,
+            insertText: 'id="$1"',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Unique identifier attribute'
+          }
+        ];
+
+        return { suggestions };
+      }
+    });
+
+    // HTML için hover provider
+    monaco.languages.registerHoverProvider('html', {
+      provideHover: (model: any, position: any) => {
+        const word = model.getWordAtPosition(position);
+        if (!word) return null;
+
+        const htmlElementInfo: Record<string, string> = {
+          'div': 'A generic container element',
+          'span': 'A generic inline element',
+          'article': 'Represents a self-contained piece of content',
+          'section': 'Represents a section of a document',
+          'header': 'Represents introductory content',
+          'footer': 'Represents footer content',
+          'nav': 'Represents a navigation section',
+          'main': 'Represents the main content of the document',
+          'aside': 'Represents content aside from the main content'
+        };
+
+        const info = htmlElementInfo[word.word];
+        if (info) {
+          return {
+            range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+            contents: [
+              { value: `**${word.word}**` },
+              { value: info }
+            ]
+          };
+        }
+        
+        return null;
+      }
+    });
+  }
+
+  private configureSQLSupport(): void {
+    const monaco = window.monaco;
+    
+    // SQL için completion provider
+    monaco.languages.registerCompletionItemProvider('sql', {
+      provideCompletionItems: (model: any, position: any) => {
+        const suggestions = [
+          // SQL Keywords
+          {
+            label: 'SELECT',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'SELECT $1 FROM $2',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Retrieve data from database'
+          },
+          {
+            label: 'INSERT',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'INSERT INTO $1 ($2) VALUES ($3)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Insert new data into table'
+          },
+          {
+            label: 'UPDATE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'UPDATE $1 SET $2 = $3 WHERE $4',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Update existing data in table'
+          },
+          {
+            label: 'DELETE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'DELETE FROM $1 WHERE $2',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Delete data from table'
+          },
+          {
+            label: 'CREATE TABLE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'CREATE TABLE $1 (\n\t$2\n)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Create a new table'
+          },
+          {
+            label: 'ALTER TABLE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'ALTER TABLE $1 $2',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Modify table structure'
+          },
+          {
+            label: 'DROP TABLE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'DROP TABLE $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Delete a table'
+          },
+          // SQL Functions
+          {
+            label: 'COUNT',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'COUNT($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Count number of rows'
+          },
+          {
+            label: 'SUM',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'SUM($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Calculate sum of values'
+          },
+          {
+            label: 'AVG',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'AVG($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Calculate average of values'
+          },
+          {
+            label: 'MAX',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'MAX($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Find maximum value'
+          },
+          {
+            label: 'MIN',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'MIN($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Find minimum value'
+          },
+          // Data Types
+          {
+            label: 'VARCHAR',
+            kind: monaco.languages.CompletionItemKind.TypeParameter,
+            insertText: 'VARCHAR($1)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Variable character string'
+          },
+          {
+            label: 'INTEGER',
+            kind: monaco.languages.CompletionItemKind.TypeParameter,
+            insertText: 'INTEGER',
+            documentation: 'Integer number type'
+          },
+          {
+            label: 'DATETIME',
+            kind: monaco.languages.CompletionItemKind.TypeParameter,
+            insertText: 'DATETIME',
+            documentation: 'Date and time type'
+          },
+          // Clauses
+          {
+            label: 'WHERE',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'WHERE $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Filter rows based on condition'
+          },
+          {
+            label: 'ORDER BY',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'ORDER BY $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Sort results'
+          },
+          {
+            label: 'GROUP BY',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'GROUP BY $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Group rows by column'
+          },
+          {
+            label: 'HAVING',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'HAVING $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Filter groups'
+          },
+          {
+            label: 'LIMIT',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'LIMIT $1',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Limit number of results'
+          }
+        ];
+
+        return { suggestions };
+      }
+    });
+
+    // SQL için hover provider
+    monaco.languages.registerHoverProvider('sql', {
+      provideHover: (model: any, position: any) => {
+        const word = model.getWordAtPosition(position);
+        if (!word) return null;
+
+        const sqlKeywordInfo: Record<string, string> = {
+          'SELECT': 'Retrieves data from one or more tables',
+          'FROM': 'Specifies the table(s) to retrieve data from',
+          'WHERE': 'Filters rows based on specified conditions',
+          'INSERT': 'Adds new rows to a table',
+          'UPDATE': 'Modifies existing rows in a table',
+          'DELETE': 'Removes rows from a table',
+          'CREATE': 'Creates database objects like tables, views, etc.',
+          'DROP': 'Removes database objects',
+          'ALTER': 'Modifies the structure of database objects',
+          'JOIN': 'Combines rows from two or more tables',
+          'INNER': 'Returns only matching rows from both tables',
+          'LEFT': 'Returns all rows from left table and matching rows from right',
+          'RIGHT': 'Returns all rows from right table and matching rows from left',
+          'FULL': 'Returns all rows when there is a match in either table',
+          'ORDER': 'Sorts the result set',
+          'GROUP': 'Groups rows that have the same values',
+          'HAVING': 'Filters groups based on conditions',
+          'COUNT': 'Returns the number of rows',
+          'SUM': 'Returns the sum of numeric values',
+          'AVG': 'Returns the average of numeric values',
+          'MAX': 'Returns the maximum value',
+          'MIN': 'Returns the minimum value'
+        };
+
+        const info = sqlKeywordInfo[word.word.toUpperCase()];
+        if (info) {
+          return {
+            range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+            contents: [
+              { value: `**${word.word.toUpperCase()}**` },
+              { value: info }
+            ]
+          };
+        }
+        
+        return null;
+      }
+    });
   }
 }

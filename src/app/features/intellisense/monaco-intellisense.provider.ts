@@ -143,6 +143,75 @@ export class MonacoIntelliSenseProvider {
   initialize(): void {
     this.configureCompiler();
 
+    // HTML için global tanımlar ekle
+    this.registry.register('document',
+      { 
+        getElementById: (id: string) => null,
+        querySelector: (selector: string) => null,
+        querySelectorAll: (selector: string) => [],
+        createElement: (tagName: string) => null,
+        addEventListener: (event: string, callback: Function) => {}
+      },
+      `declare global { 
+        var document: {
+          getElementById(id: string): HTMLElement | null;
+          querySelector(selector: string): Element | null;
+          querySelectorAll(selector: string): NodeList;
+          createElement(tagName: string): HTMLElement;
+          addEventListener(event: string, callback: EventListener): void;
+          body: HTMLBodyElement;
+          head: HTMLHeadElement;
+          title: string;
+        }; 
+      } export {};`
+    );
+
+    // HTML DOM elements için tip tanımları
+    this.registry.register('HTMLElement',
+      {},
+      `declare global {
+        interface HTMLElement {
+          innerHTML: string;
+          textContent: string;
+          className: string;
+          id: string;
+          style: CSSStyleDeclaration;
+          addEventListener(type: string, listener: EventListener): void;
+          removeEventListener(type: string, listener: EventListener): void;
+          click(): void;
+          focus(): void;
+          blur(): void;
+        }
+        interface HTMLInputElement extends HTMLElement {
+          value: string;
+          checked: boolean;
+          disabled: boolean;
+          placeholder: string;
+          type: string;
+        }
+        interface HTMLButtonElement extends HTMLElement {
+          disabled: boolean;
+          type: string;
+        }
+      } export {};`
+    );
+
+    // SQL için global tanımlar
+    this.registry.register('sql',
+      {
+        query: (sql: string) => [],
+        execute: (sql: string) => true,
+        transaction: (callback: Function) => {}
+      },
+      `declare global {
+        var sql: {
+          query(sql: string): any[];
+          execute(sql: string): boolean;
+          transaction(callback: () => void): void;
+        };
+      } export {};`
+    );
+
     // --- MonacoIntelliSenseProvider.ts içinde, initialize() metodunun sonuna ekleyin ---
 this.registry.register(
   'newObject',
