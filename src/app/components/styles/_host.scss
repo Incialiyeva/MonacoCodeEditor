@@ -1,0 +1,50 @@
+// Ana Host Stilleri
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+
+// Tema özel CSS değişkenleri
+:host.dark-theme {
+  --background-color: #1E1E1E;
+  --text-color: #D4D4D4;
+  --border-color: #3A3D41;
+  --header-background: #2A2D2E;
+  --hover-background: #3A3D41;
+  --active-background: #007ACC;
+  --active-border: #007ACC;
+  --icon-background: #3A3D41;
+  --description-color: #8B949E;
+  --button-background: #007ACC;
+}
+
+:host.light-theme {
+  --background-color: #FFFFFF;
+  --text-color: #24292F;
+  --border-color: #E1E5E9;
+  --header-background: #F8F9FA;
+  --hover-background: #F6F8FA;
+  --active-background: #0969DA;
+  --active-border: #0969DA;
+  --icon-background: #F6F8FA;
+  --description-color: #656D76;
+  --button-background: #0969DA;
+}
+
+:host.high-contrast-theme {
+  --background-color: #000000;
+  --text-color: #FFFFFF;
+  --border-color: #FFFFFF;
+  --header-background: #1A1A1A;
+  --hover-background: #2A2A2A;
+  --active-background: #FFFFFF;
+  --active-border: #FFFFFF;
+  --icon-background: #2A2A2A;
+  --description-color: #CCCCCC;
+  --button-background: #FFFFFF;
+  --button-text-color: #000000;
+} 
