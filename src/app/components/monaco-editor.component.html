@@ -274,46 +274,4 @@
   <div class="output-content">
     <pre>{{ runOutput }}</pre>
   </div>
-</div>
-
-<div *ngIf="showSaveModal" class="modal-overlay">
-  <div class="modal-box save-modal-box github-style-modal">
-    <div class="modal-title">Select files to save</div>
-    <div class="choose-all-row">
-      <label>
-        <input type="checkbox" [(ngModel)]="chooseAllForSave" (change)="toggleChooseAllForSave()" />
-        <span style="margin-left:0.5em;font-weight:500;">Choose All</span>
-      </label>
-    </div>
-    <div class="github-modal-content">
-      <div class="github-modal-tabs">
-        <div *ngFor="let tab of openTabs; let i = index"
-             class="github-modal-tab-item"
-             [class.active]="activeTabForSave === i"
-             [class.selected]="selectedTabsForSave.includes(i)"
-             (click)="setActiveTabForSave(i)">
-          <input type="checkbox" [checked]="selectedTabsForSave.includes(i)" (click)="$event.stopPropagation(); toggleTabForSave(i)" />
-          <span class="tab-name">{{ tab.name }}</span>
-        </div>
-      </div>
-      <div class="github-modal-code-preview">
-        <div class="tab-code-preview">
-          <div class="diff-view">
-            <div class="diff-left">
-              <div class="diff-header">Original</div>
-              <div class="diff-content" *ngIf="openTabs[activeTabForSave]" [innerHTML]="getActiveTabDiffHTML().left"></div>
-            </div>
-            <div class="diff-right">
-              <div class="diff-header">Modified</div>
-              <div class="diff-content" *ngIf="openTabs[activeTabForSave]" [innerHTML]="getActiveTabDiffHTML().right"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="toolbar-btn modern-btn save-btn" (click)="saveSelectedTabs()">Save</button>
-      <button class="toolbar-btn modern-btn cancel-btn" (click)="cancelSaveModal()">Cancel</button>
-    </div>
-  </div>
 </div> 
