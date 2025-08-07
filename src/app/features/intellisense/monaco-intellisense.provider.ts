@@ -143,6 +143,24 @@ export class MonacoIntelliSenseProvider {
   initialize(): void {
     this.configureCompiler();
 
+    // --- MonacoIntelliSenseProvider.ts içinde, initialize() metodunun sonuna ekleyin ---
+this.registry.register(
+  'newObject',
+  {
+    foo: (x: number) => x * 2,
+    bar: (s: string) => s.toUpperCase(),
+  },
+  `declare global {
+     var newObject: {
+       foo(x: number): number;
+       bar(s: string): string;
+     };
+   }
+   export {};`
+);
+
+    
+
     // Example of registering core globals with static definitions
     this.registry.register('recordService',
       { id: 1, name: 'RecordService', getRecords: () => [] },
