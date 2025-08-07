@@ -32,7 +32,7 @@ declare global {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './monaco-editor.component.html',
-  styleUrls: ['./monaco-editor.component.scss']
+  styleUrls: ['./monaco-editor.component.scss'],
 })
 export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   @ViewChild('editorContainer', { static: true }) editorContainer!: ElementRef<HTMLDivElement>;
@@ -85,6 +85,17 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
 
   // Save confirmation modal için
   showSaveConfirmation = false;
+
+  // Run/Debug için
+  showRunOutput = false;
+  runOutput: string = '';
+  isRunning = false;
+  isDebugging = false;
+  debugOutput: string = '';
+  executionTime: number = 0;
+
+  // Toolbar visibility control
+  showToolbar = false;
 
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
@@ -448,6 +459,32 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             contextMenuOrder: 1.5,
             run: async (ed: any) => {
               await this.formatCode();
+            }
+          });
+          
+          this.editor.addAction({
+            id: 'run-code',
+            label: 'Run Code',
+            keybindings: [
+              window.monaco.KeyMod.Ctrl | window.monaco.KeyCode.F5
+            ],
+            contextMenuGroupId: '9_cutcopypaste',
+            contextMenuOrder: 1.0,
+            run: async (ed: any) => {
+              await this.runCode();
+            }
+          });
+          
+          this.editor.addAction({
+            id: 'debug-code',
+            label: 'Debug Code',
+            keybindings: [
+              window.monaco.KeyCode.F5
+            ],
+            contextMenuGroupId: '9_cutcopypaste',
+            contextMenuOrder: 1.1,
+            run: async (ed: any) => {
+              await this.debugCode();
             }
           });
           
@@ -1335,5 +1372,357 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Show save confirmation modal
   showSaveConfirmationModal() {
     this.showSaveConfirmation = true;
+  }
+
+  // Run Code - VS Code benzeri run özelliği
+  async runCode() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      this.isRunning = true;
+      this.showRunOutput = true;
+      this.runOutput = 'Running...\n';
+      
+      const startTime = performance.now();
+      
+      try {
+        switch (language) {
+          case 'javascript':
+            await this.runJavaScript(code);
+            break;
+          case 'html':
+            await this.runHTML(code);
+            break;
+          case 'sql':
+            await this.runSQL(code);
+            break;
+          default:
+            this.runOutput = 'Language not supported for execution\n';
+        }
+      } catch (error: any) {
+        this.runOutput += `\nError: ${error.message || error}\n`;
+      } finally {
+        const endTime = performance.now();
+        this.executionTime = endTime - startTime;
+        this.isRunning = false;
+        this.runOutput += `\nExecution completed in ${this.executionTime.toFixed(2)}ms\n`;
+      }
+    }
+  }
+
+  // Debug Code - VS Code benzeri debug özelliği  
+  async debugCode() {
+    if (isPlatformBrowser(this.platformId) && this.editor) {
+      const code = this.editor.getValue();
+      const language = this.detectLanguageFromCode(code);
+      
+      this.isDebugging = true;
+      this.showRunOutput = true;
+      this.debugOutput = 'Starting debug session...\n';
+      this.runOutput = this.debugOutput;
+      
+      const startTime = performance.now();
+      
+      try {
+        switch (language) {
+          case 'javascript':
+            await this.debugJavaScript(code);
+            break;
+          case 'html':
+            await this.debugHTML(code);
+            break;
+          case 'sql':
+            await this.debugSQL(code);
+            break;
+          default:
+            this.runOutput = 'Language not supported for debugging\n';
+        }
+      } catch (error: any) {
+        this.runOutput += `\nDebug Error: ${error.message || error}\n`;
+      } finally {
+        const endTime = performance.now();
+        this.executionTime = endTime - startTime;
+        this.isDebugging = false;
+        this.runOutput += `\nDebug session completed in ${this.executionTime.toFixed(2)}ms\n`;
+      }
+    }
+  }
+
+  // JavaScript execution
+  private async runJavaScript(code: string) {
+    this.runOutput += 'Executing JavaScript...\n';
+    
+    try {
+      // Capture console.log output
+      const originalLog = console.log;
+      const logs: string[] = [];
+      
+      console.log = (...args) => {
+        logs.push(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' '));
+      };
+      
+      // Execute the code
+      const result = eval(code);
+      
+      // Restore console.log
+      console.log = originalLog;
+      
+      // Show output
+      if (logs.length > 0) {
+        this.runOutput += 'Console Output:\n' + logs.join('\n') + '\n';
+      }
+      
+      if (result !== undefined) {
+        this.runOutput += `\nReturn Value: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : result}\n`;
+      }
+      
+      this.runOutput += '\nJavaScript executed successfully!\n';
+      
+    } catch (error: any) {
+      this.runOutput += `\nJavaScript Error: ${error.message}\n`;
+      if (error.stack) {
+        this.runOutput += `Stack: ${error.stack}\n`;
+      }
+    }
+  }
+
+  // HTML preview
+  private async runHTML(code: string) {
+    this.runOutput += 'Opening HTML preview...\n';
+    
+    try {
+      // HTML içeriğini blob olarak oluştur ve yeni sekmede aç
+      const blob = new Blob([code], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Yeni sekmede aç
+      const newWindow = window.open(url, '_blank');
+      
+      if (newWindow) {
+        this.runOutput += 'HTML preview opened in new tab successfully!\n';
+        this.runOutput += `Preview URL: ${url}\n`;
+        
+        // URL'yi kısa süre sonra temizle
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 60000);
+      } else {
+        this.runOutput += 'Failed to open HTML preview. Please allow popups for this site.\n';
+      }
+      
+    } catch (error: any) {
+      this.runOutput += `\nHTML Preview Error: ${error.message}\n`;
+    }
+  }
+
+  // SQL validation and mock execution
+  private async runSQL(code: string) {
+    this.runOutput += 'Validating and executing SQL...\n';
+    
+    try {
+      // SQL validation
+      const validation = validateSQL(code);
+      
+      if (!validation.isValid) {
+        this.runOutput += '\nSQL Validation Errors:\n';
+        validation.errors.forEach(error => {
+          this.runOutput += `- ${error}\n`;
+        });
+        return;
+      }
+      
+      this.runOutput += 'SQL validation passed!\n';
+      
+      // Mock SQL execution
+      const sqlType = this.detectSQLType(code);
+      this.runOutput += `\nDetected SQL Type: ${sqlType}\n`;
+      
+      switch (sqlType.toLowerCase()) {
+        case 'select':
+          this.runOutput += '\nMock Result Set:\n';
+          this.runOutput += '| id | name          | email               | active |\n';
+          this.runOutput += '|----|---------------|---------------------|--------|\n';
+          this.runOutput += '| 1  | John Doe      | john@example.com    | 1      |\n';
+          this.runOutput += '| 2  | Jane Smith    | jane@example.com    | 1      |\n';
+          this.runOutput += '| 3  | Bob Johnson   | bob@example.com     | 0      |\n';
+          this.runOutput += '\n(3 rows affected)\n';
+          break;
+        case 'insert':
+          this.runOutput += '\nMock Insert Result:\n';
+          this.runOutput += '1 row(s) inserted successfully.\n';
+          this.runOutput += 'New record ID: 42\n';
+          break;
+        case 'update':
+          this.runOutput += '\nMock Update Result:\n';
+          this.runOutput += '2 row(s) updated successfully.\n';
+          break;
+        case 'delete':
+          this.runOutput += '\nMock Delete Result:\n';
+          this.runOutput += '1 row(s) deleted successfully.\n';
+          break;
+        default:
+          this.runOutput += '\nSQL command executed successfully!\n';
+      }
+      
+    } catch (error: any) {
+      this.runOutput += `\nSQL Execution Error: ${error.message}\n`;
+    }
+  }
+
+  // JavaScript debugging with step-by-step analysis
+  private async debugJavaScript(code: string) {
+    this.runOutput += 'Starting JavaScript debug session...\n';
+    
+    try {
+      // Analyze code structure
+      const lines = code.split('\n');
+      this.runOutput += `\nCode Analysis:\n`;
+      this.runOutput += `- Total lines: ${lines.length}\n`;
+      
+      const functions = code.match(/function\s+\w+/g) || [];
+      const variables = code.match(/(?:var|let|const)\s+\w+/g) || [];
+      const loops = code.match(/for\s*\(|while\s*\(/g) || [];
+      const conditionals = code.match(/if\s*\(/g) || [];
+      
+      this.runOutput += `- Functions declared: ${functions.length} (${functions.join(', ')})\n`;
+      this.runOutput += `- Variables declared: ${variables.length} (${variables.join(', ')})\n`;
+      this.runOutput += `- Loops found: ${loops.length}\n`;
+      this.runOutput += `- Conditionals found: ${conditionals.length}\n`;
+      
+      // Simulate step-by-step execution
+      this.runOutput += '\nStep-by-step execution simulation:\n';
+      lines.forEach((line, index) => {
+        const trimmedLine = line.trim();
+        if (trimmedLine && !trimmedLine.startsWith('//')) {
+          this.runOutput += `Step ${index + 1}: ${trimmedLine}\n`;
+        }
+      });
+      
+      // Execute with debug info
+      await this.runJavaScript(code);
+      
+    } catch (error: any) {
+      this.runOutput += `\nDebug Error: ${error.message}\n`;
+    }
+  }
+
+  // HTML debugging - analyze structure
+  private async debugHTML(code: string) {
+    this.runOutput += 'Starting HTML debug session...\n';
+    
+    try {
+      // HTML structure analysis
+      const tags = code.match(/<\w+/g) || [];
+      const closingTags = code.match(/<\/\w+>/g) || [];
+      const selfClosingTags = code.match(/<\w+[^>]*\/>/g) || [];
+      
+      this.runOutput += `\nHTML Structure Analysis:\n`;
+      this.runOutput += `- Opening tags: ${tags.length}\n`;
+      this.runOutput += `- Closing tags: ${closingTags.length}\n`;
+      this.runOutput += `- Self-closing tags: ${selfClosingTags.length}\n`;
+      
+      // Check for common HTML elements
+      const hasDoctype = code.toLowerCase().includes('<!doctype');
+      const hasHtml = code.includes('<html');
+      const hasHead = code.includes('<head');
+      const hasBody = code.includes('<body');
+      
+      this.runOutput += `\nDocument Structure:\n`;
+      this.runOutput += `- DOCTYPE declaration: ${hasDoctype ? '✓' : '✗'}\n`;
+      this.runOutput += `- HTML element: ${hasHtml ? '✓' : '✗'}\n`;
+      this.runOutput += `- HEAD section: ${hasHead ? '✓' : '✗'}\n`;
+      this.runOutput += `- BODY section: ${hasBody ? '✓' : '✗'}\n`;
+      
+      // Validate HTML
+      const validation = validateHTML(code);
+      if (!validation.isValid) {
+        this.runOutput += '\nHTML Validation Issues:\n';
+        validation.errors.forEach(error => {
+          this.runOutput += `- ${error}\n`;
+        });
+      } else {
+        this.runOutput += '\nHTML validation passed!\n';
+      }
+      
+      // Run HTML preview
+      await this.runHTML(code);
+      
+    } catch (error: any) {
+      this.runOutput += `\nHTML Debug Error: ${error.message}\n`;
+    }
+  }
+
+  // SQL debugging - detailed analysis
+  private async debugSQL(code: string) {
+    this.runOutput += 'Starting SQL debug session...\n';
+    
+    try {
+      // SQL structure analysis
+      const statements = code.split(';').filter(s => s.trim());
+      this.runOutput += `\nSQL Analysis:\n`;
+      this.runOutput += `- Number of statements: ${statements.length}\n`;
+      
+      statements.forEach((statement, index) => {
+        const trimmed = statement.trim();
+        if (trimmed) {
+          const type = this.detectSQLType(trimmed);
+          this.runOutput += `Statement ${index + 1}: ${type} - "${trimmed.substring(0, 50)}..."\n`;
+        }
+      });
+      
+      // Analyze keywords
+      const keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP BY', 'ORDER BY', 'HAVING'];
+      this.runOutput += `\nKeyword usage:\n`;
+      keywords.forEach(keyword => {
+        const count = (code.toUpperCase().match(new RegExp(keyword, 'g')) || []).length;
+        if (count > 0) {
+          this.runOutput += `- ${keyword}: ${count} times\n`;
+        }
+      });
+      
+      // Run SQL validation and execution
+      await this.runSQL(code);
+      
+    } catch (error: any) {
+      this.runOutput += `\nSQL Debug Error: ${error.message}\n`;
+    }
+  }
+
+  // Detect SQL statement type
+  private detectSQLType(sql: string): string {
+    const trimmed = sql.trim().toUpperCase();
+    if (trimmed.startsWith('SELECT')) return 'SELECT';
+    if (trimmed.startsWith('INSERT')) return 'INSERT';
+    if (trimmed.startsWith('UPDATE')) return 'UPDATE';
+    if (trimmed.startsWith('DELETE')) return 'DELETE';
+    if (trimmed.startsWith('CREATE')) return 'CREATE';
+    if (trimmed.startsWith('DROP')) return 'DROP';
+    if (trimmed.startsWith('ALTER')) return 'ALTER';
+    return 'UNKNOWN';
+  }
+
+  // Close run output panel
+  closeRunOutput() {
+    this.showRunOutput = false;
+    this.runOutput = '';
+    this.isRunning = false;
+    this.isDebugging = false;
+  }
+
+  // Clear run output
+  clearRunOutput() {
+    this.runOutput = '';
+    this.debugOutput = '';
+  }
+
+  // Toggle toolbar visibility
+  toggleToolbar() {
+    this.showToolbar = !this.showToolbar;
+  }
+
+  // Close toolbar
+  closeToolbar() {
+    this.showToolbar = false;
   }
 }

@@ -9,15 +9,352 @@
 
 .editor-toolbar {
   display: flex;
-  align-items: center;
-  background: #23272e;
-  padding: 0.8rem 2rem;
-  border-bottom: 1px solid #2d333b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  gap: 1.5rem;
-  position: relative;
-  z-index: 2;
+  flex-direction: column;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  gap: 0;
+  position: fixed;
+  top: 65px;
+  right: 20px;
+  min-width: 240px;
+  max-width: 280px;
+  z-index: 999;
+  animation: slideDownToolbar 0.2s ease-out;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
 }
+
+@keyframes slideDownToolbar {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toolbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(45, 45, 45, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px 8px 0 0;
+}
+
+.toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  
+  svg {
+    color: #0969da;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.toolbar-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+  
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.run-debug-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #e6edf3;
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  svg {
+    transition: all 0.2s ease;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    
+    svg {
+      opacity: 1;
+    }
+  }
+}
+
+.toolbar-btn.run-btn {
+  color: #3fb950;
+  
+  &:hover:not(:disabled) {
+    background: rgba(63, 185, 80, 0.1);
+    color: #3fb950;
+  }
+  
+  svg {
+    color: #3fb950;
+  }
+}
+
+.toolbar-btn.debug-btn {
+  color: #f79000;
+  
+  &:hover:not(:disabled) {
+    background: rgba(247, 144, 0, 0.1);
+    color: #f79000;
+  }
+  
+  svg {
+    color: #f79000;
+  }
+}
+
+.toolbar-btn.output-btn {
+  color: #0969da;
+  
+  &:hover:not(:disabled) {
+    background: rgba(9, 105, 218, 0.1);
+    color: #0969da;
+  }
+  
+  &.active {
+    background: rgba(9, 105, 218, 0.15);
+    color: #0969da;
+  }
+  
+  svg {
+    color: #0969da;
+  }
+}
+
+@keyframes spinning {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Output Panel Styles
+.output-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+  background: #181a20;
+  border-top: 1px solid #2d333b;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  animation: slideUpPanel 0.3s ease;
+}
+
+@keyframes slideUpPanel {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1.5rem;
+  background: #23272e;
+  border-bottom: 1px solid #2d333b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.output-title {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: #e6e6e6;
+  font-weight: 600;
+  font-size: 0.95rem;
+  
+  svg {
+    color: #4f8cff;
+  }
+}
+
+.execution-time {
+  color: #8b949e;
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+
+.output-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.output-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e6e6e6;
+    transform: scale(1.05);
+  }
+  
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.output-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  background: #0d1117;
+  
+  pre {
+    margin: 0;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    
+    // Syntax highlighting for different output types
+    &:has-text("Error:") {
+      color: #f85149;
+    }
+    
+    &:has-text("Debug:") {
+      color: #ff9500;
+    }
+    
+    &:has-text("Success:") {
+      color: #3fb950;
+    }
+  }
+  
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #161b22;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #484f58;
+    }
+  }
+}
+
+// Responsive design for output panel
+@media (max-width: 768px) {
+  .output-panel {
+    height: 250px;
+  }
+  
+  .run-debug-controls {
+    gap: 0.5rem;
+    
+    .toolbar-btn {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.8rem;
+      
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+  
+  .output-header {
+    padding: 0.6rem 1rem;
+  }
+  
+  .output-content {
+    padding: 0.8rem 1rem;
+    
+    pre {
+      font-size: 0.8rem;
+    }
+  }
+} 
 
 .editor-area {
   width: 100%;
@@ -339,218 +676,6 @@
   text-align: center;
 }
 
-.choose-all-row {
-  margin-bottom: 1.3rem;
-  text-align: left;
-  padding: 1rem 1.2rem;
-  background: #2d333b;
-  border-radius: 12px;
-  border: 1px solid #3e4451;
-  transition: all 0.2s ease;
-}
-
-.choose-all-row:hover {
-  background: #323842;
-  border-color: #4f8cff;
-}
-
-.choose-all-row label {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  font-weight: 600;
-  color: #e6e6e6;
-  font-size: 1.05rem;
-}
-
-.choose-all-row input[type="checkbox"] {
-  appearance: none;
-  width: 1.3em;
-  height: 1.3em;
-  border: 2px solid #4f8cff;
-  border-radius: 50%;
-  background: transparent;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.choose-all-row input[type="checkbox"]:checked {
-  background: #4f8cff;
-  border-color: #4f8cff;
-  box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.3);
-}
-
-.choose-all-row input[type="checkbox"]:checked::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 0.9em;
-  font-weight: bold;
-}
-
-.github-style-modal {
-  background: #0d1117;
-  color: #c9d1d9;
-  border: 1px solid #30363d;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-}
-
-.github-modal-content {
-  display: flex;
-  gap: 2rem;
-  margin: 2rem 0;
-}
-
-.github-modal-tabs {
-  flex: 1;
-  max-width: 320px;
-}
-
-.github-modal-tab-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.2rem;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  border: 1px solid transparent;
-  margin-bottom: 0.5rem;
-  
-  &.selected {
-    background: rgba(63, 185, 80, 0.12);
-    border-color: rgba(63, 185, 80, 0.4);
-  }
-  
-  &.active {
-    background: rgba(63, 185, 80, 0.08);
-  }
-  
-  &:hover {
-    background: rgba(63, 185, 80, 0.08);
-    transform: translateX(2px);
-  }
-}
-
-.github-modal-code-preview {
-  flex: 2;
-  min-width: 0;
-}
-
-.tab-code-preview {
-  background: #0d1117;
-  color: #c9d1d9;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  font-family: 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  font-size: 0.9em;
-  padding: 1.2em 1.5em;
-  resize: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  min-height: 280px;
-  max-height: 320px;
-  line-height: 1.4;
-  letter-spacing: 0.01em;
-  position: relative;
-  overflow: hidden;
-}
-
-.diff-view {
-  display: flex;
-  height: 100%;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.diff-left, .diff-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.diff-left {
-  background: #0d1117;
-  border-right: 1px solid #30363d;
-}
-
-.diff-right {
-  background: #0d1117;
-}
-
-.diff-header {
-  padding: 0.8rem 1.2rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #8b949e;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-}
-
-.diff-left .diff-header {
-  background: #161b22;
-  color: #8b949e;
-}
-
-.diff-right .diff-header {
-  background: #0d4a1a;
-  color: #3fb950;
-}
-
-.diff-content {
-  flex: 1;
-  background: #0d1117;
-  color: #c9d1d9;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  font-size: 0.9em;
-  padding: 1em 1.2em;
-  line-height: 1.5;
-  letter-spacing: 0.01em;
-  white-space: pre;
-  overflow-y: auto;
-  max-height: 280px;
-}
-
-.diff-line {
-  display: block;
-  padding: 0.15em 0;
-  border-radius: 3px;
-  margin: 0.15em 0;
-}
-
-.diff-line.unchanged {
-  color: #8b949e;
-  background: transparent;
-}
-
-.diff-line.deleted {
-  color: #f85149;
-  background: #67060c;
-  border-left: 4px solid #f85149;
-  padding-left: 0.8em;
-}
-
-.diff-line.added {
-  color: #3fb950;
-  background: #0d4a1a;
-  border-left: 4px solid #3fb950;
-  padding-left: 0.8em;
-}
-
-.diff-line.empty {
-  background: transparent;
-  height: 1.5em;
-}
-
 .modal-actions {
   display: flex;
   justify-content: center;
@@ -558,7 +683,7 @@
   margin-top: 1rem;
 }
 
-.toolbar-btn {
+.modern-btn {
   font-size: 1.1rem;
   font-weight: 600;
   border-radius: 12px;
@@ -593,7 +718,7 @@
   }
 }
 
-.toolbar-btn:hover {
+.modern-btn:hover {
   background: #353945;
   color: #fff;
   border: 1.5px solid #4f8cff;
@@ -601,63 +726,87 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-.toolbar-btn.save-btn {
+.modern-btn.save-btn {
   color: #43e97b;
   border: 1.5px solid #43e97b;
   background: rgba(67, 233, 123, 0.08);
 }
 
-.toolbar-btn.save-btn:hover {
+.modern-btn.save-btn:hover {
   background: rgba(67, 233, 123, 0.18);
   color: #43e97b;
   box-shadow: 0 6px 20px rgba(67, 233, 123, 0.25);
 }
 
+// Responsive design for mobile
 @media (max-width: 768px) {
   .editor-toolbar {
-    padding: 0.8rem 1.5rem;
-    gap: 1.2rem;
+    top: 55px;
+    right: 15px;
+    left: 15px;
+    min-width: auto;
+    max-width: calc(100vw - 30px);
   }
   
-  .dialog-bottom-buttons {
-    bottom: 1rem;
-    left: 1rem;
-    gap: 0.8rem;
+  .toolbar-header {
+    padding: 10px 12px;
+  }
+  
+  .toolbar-title {
+    font-size: 12px;
     
-    .dialog-btn {
-      padding: 0.6rem 1rem;
-      font-size: 0.9rem;
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+  
+  .toolbar-close-btn {
+    width: 20px;
+    height: 20px;
+    
+    svg {
+      width: 10px;
+      height: 10px;
+    }
+  }
+  
+  .run-debug-controls {
+    padding: 6px;
+    
+    .toolbar-btn {
+      padding: 8px 10px;
+      font-size: 12px;
       
       svg {
         width: 14px;
         height: 14px;
       }
     }
+  }
+  
+  .output-panel {
+    height: 250px;
+    border-radius: 12px 12px 0 0;
+  }
+  
+  .output-header {
+    padding: 0.8rem 1.2rem;
+  }
+  
+  .output-content {
+    padding: 1rem 1.2rem;
     
-    .dialog-btn.diff-btn {
-      padding: 0.6rem;
-      min-width: 40px;
+    pre {
+      font-size: 0.8rem;
     }
   }
-  
-  .dialog-bottom-actions {
-    bottom: 1rem;
-    right: 1rem;
-    gap: 0.8rem;
-    
-    .dialog-btn {
-      padding: 0.6rem 1rem;
-      font-size: 0.9rem;
-    }
-  }
-  
-  .modal-box {
-    padding: 2rem 2rem 1.5rem 2rem;
-    margin: 1rem;
-  }
-  
-  .save-modal-box {
-    min-width: 95vw;
-    padding: 2rem 2rem 1.5rem 2rem;
+}
+
+// Large screens
+@media (min-width: 1200px) {
+  .editor-toolbar {
+    min-width: 260px;
+    max-width: 300px;
   }
 } 

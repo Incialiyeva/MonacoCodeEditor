@@ -1,4 +1,4 @@
-import { Component, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, Inject, PLATFORM_ID, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MonacoEditorComponent } from '../components/monaco-editor.component';
 import { isPlatformBrowser } from '@angular/common';
@@ -11,11 +11,14 @@ import { isPlatformBrowser } from '@angular/common';
   imports: [CommonModule, MonacoEditorComponent]
 })
 export class LandingPageComponent {
+  @ViewChild(MonacoEditorComponent) monacoEditor!: MonacoEditorComponent;
+  
   isModalOpen = false;
   isScriptModalOpen = false;
   isBrowser = false;
   selectedScriptIndex = 0;
   editorTheme = 'vs-dark';
+  showRunDebugPanel = false;
 
   scriptTemplates = [
     {
@@ -105,5 +108,12 @@ export class LandingPageComponent {
 
   toggleEditorTheme() {
     this.editorTheme = this.editorTheme === 'vs-dark' ? 'vs-light' : 'vs-dark';
+  }
+
+  toggleRunDebugPanel() {
+    this.showRunDebugPanel = !this.showRunDebugPanel;
+    if (this.monacoEditor) {
+      this.monacoEditor.showToolbar = this.showRunDebugPanel;
+    }
   }
 } 
