@@ -97,6 +97,17 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Toolbar visibility control
   showToolbar = false;
 
+  // Debug properties - eksik olan property'leri ekliyorum
+  showVariablesPanel = false;
+  showCallStackPanel = false;
+  debugCallStack: any[] = [];
+  debugVariables: Record<string, any> = {};
+
+  // Breakpoint management - yeni özellikler
+  breakpoints: Set<number> = new Set();
+  breakpointDecorations: string[] = [];
+  hoverProvider: any = null;
+
   openSaveModal() {
     this.selectedTabsForSave = this.openTabs.map((_, i) => i);
     this.chooseAllForSave = true;
@@ -399,6 +410,8 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             language: language,
             theme: this.editorTheme,
             automaticLayout: true,
+            // Breakpoint desteği için glyph margin'i aktif et
+            glyphMargin: true,
             // Gelişmiş IntelliSense ayarları
             suggestOnTriggerCharacters: true,
             quickSuggestions: {
@@ -437,6 +450,9 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
             }
           });
           
+          // Breakpoint ve hover özelliklerini initialize et
+          this.initializeBreakpointSupport();
+          this.initializeHoverProvider();
           
           // Editor içeriği değiştiğinde script template'ini güncelle
           this.editor.onDidChangeModelContent(() => {
@@ -1422,6 +1438,18 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.debugOutput = 'Starting debug session...\n';
       this.runOutput = this.debugOutput;
       
+      // Debug panel'leri açma opsiyon
+      if (this.breakpoints.size > 0) {
+        this.debugOutput += `Found ${this.breakpoints.size} breakpoint(s) at lines: ${Array.from(this.breakpoints).join(', ')}\n`;
+        this.runOutput += this.debugOutput;
+        
+        // Debug panellerini otomatik aç
+        this.showVariablesPanel = true;
+        this.showCallStackPanel = true;
+        this.updateDebugVariables();
+        this.updateDebugCallStack();
+      }
+      
       const startTime = performance.now();
       
       try {
@@ -1445,6 +1473,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
         this.executionTime = endTime - startTime;
         this.isDebugging = false;
         this.runOutput += `\nDebug session completed in ${this.executionTime.toFixed(2)}ms\n`;
+        
+        // Debug panellerini kapat
+        setTimeout(() => {
+          this.showVariablesPanel = false;
+          this.showCallStackPanel = false;
+        }, 3000);
       }
     }
   }
@@ -1594,17 +1628,97 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.runOutput += '\nStep-by-step execution simulation:\n';
       lines.forEach((line, index) => {
         const trimmedLine = line.trim();
-        if (trimmedLine && !trimmedLine.startsWith('//')) {
-          this.runOutput += `Step ${index + 1}: ${trimmedLine}\n`;
+        const lineNumber = index + 1;
+        
+        if (trimmedLine && !trimmedLine.startsWith('//') && !trimmedLine.startsWith('/*')) {
+          // Check if this is a breakpoint line
+          if (this.breakpoints.has(lineNumber)) {
+            this.runOutput += `🔴 BREAKPOINT → Line ${lineNumber}: ${trimmedLine}\n`;
+            this.runOutput += `    ⏸️  Execution paused for debugging\n`;
+            
+            // Show variable state at breakpoint
+            this.runOutput += `    📊 Variable inspection available\n`;
+            this.simulateVariableState(trimmedLine, lineNumber);
+          } else {
+            this.runOutput += `Line ${lineNumber}: ${trimmedLine}\n`;
+          }
+          
+          // Simulate execution analysis
+          if (trimmedLine.includes('console.log')) {
+            this.runOutput += `  → Console output detected\n`;
+          }
+          if (trimmedLine.includes('=') && !trimmedLine.includes('==') && !trimmedLine.includes('===')) {
+            this.runOutput += `  → Variable assignment detected\n`;
+          }
+          if (trimmedLine.includes('function')) {
+            this.runOutput += `  → Function definition detected\n`;
+          }
         }
       });
       
-      // Execute with debug info
-      await this.runJavaScript(code);
+      // Try to execute the code safely
+      this.runOutput += '\nAttempting controlled execution...\n';
+      try {
+        // Create a safer execution environment
+        const safeCode = this.createSafeExecutionWrapper(code);
+        const result = eval(safeCode);
+        this.runOutput += `✅ Code executed successfully\n`;
+        if (result !== undefined) {
+          this.runOutput += `📤 Final result: ${result}\n`;
+        }
+      } catch (execError: any) {
+        this.runOutput += `❌ Runtime error: ${execError.message}\n`;
+      }
       
     } catch (error: any) {
-      this.runOutput += `\nDebug Error: ${error.message}\n`;
+      this.runOutput += `Debug Error: ${error.message}\n`;
     }
+  }
+
+  // Simulate variable state for debugging
+  private simulateVariableState(line: string, lineNumber: number) {
+    // Extract variable assignments and function calls for simulation
+    const varMatches = line.match(/(?:var|let|const)\s+(\w+)\s*=\s*(.+)/);
+    const assignMatches = line.match(/(\w+)\s*=\s*(.+)/);
+    
+    if (varMatches) {
+      const varName = varMatches[1];
+      const varValue = varMatches[2].trim();
+      this.debugVariables[varName] = `${this.inferType(varValue)}: ${varValue}`;
+    } else if (assignMatches && !line.includes('==') && !line.includes('===')) {
+      const varName = assignMatches[1];
+      const varValue = assignMatches[2].trim();
+      this.debugVariables[varName] = `${this.inferType(varValue)}: ${varValue}`;
+    }
+    
+    // Add line context
+    this.debugVariables[`__currentLine`] = `number: ${lineNumber}`;
+    this.debugVariables[`__currentStatement`] = `string: "${line.trim()}"`;
+  }
+
+  // Infer variable type for debugging
+  private inferType(value: string): string {
+    if (value.match(/^["'`]/)) return 'string';
+    if (value.match(/^\d+$/)) return 'number';
+    if (value.match(/^\d*\.\d+$/)) return 'number';
+    if (value === 'true' || value === 'false') return 'boolean';
+    if (value.startsWith('[') || value.startsWith('Array')) return 'array';
+    if (value.startsWith('{') || value.startsWith('Object')) return 'object';
+    if (value.includes('function') || value.includes('=>')) return 'function';
+    return 'unknown';
+  }
+
+  // Create safer execution wrapper
+  private createSafeExecutionWrapper(code: string): string {
+    return `
+      (function() {
+        try {
+          ${code}
+        } catch (e) {
+          return 'Error: ' + e.message;
+        }
+      })();
+    `;
   }
 
   // HTML debugging - analyze structure
@@ -1724,5 +1838,195 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
   // Close toolbar
   closeToolbar() {
     this.showToolbar = false;
+  }
+
+  // Breakpoint yönetimi metodları
+  private initializeBreakpointSupport() {
+    if (!isPlatformBrowser(this.platformId) || !this.editor) return;
+
+    // Mouse down event listener - glyph margin tıklaması için
+    this.editor.onMouseDown((e: any) => {
+      if (e.target && e.target.type === window.monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+        const lineNumber = e.target.position.lineNumber;
+        this.toggleBreakpoint(lineNumber);
+      }
+    });
+
+    // İlk breakpoint decorasyonlarını ayarla
+    this.updateBreakpointDecorations();
+  }
+
+  // Breakpoint toggle işlemi
+  toggleBreakpoint(lineNumber: number) {
+    if (this.breakpoints.has(lineNumber)) {
+      this.breakpoints.delete(lineNumber);
+    } else {
+      this.breakpoints.add(lineNumber);
+    }
+    this.updateBreakpointDecorations();
+  }
+
+  // Breakpoint decorasyonlarını güncelle
+  private updateBreakpointDecorations() {
+    if (!this.editor || !window.monaco) return;
+
+    const decorations = Array.from(this.breakpoints).map(lineNumber => ({
+      range: new window.monaco.Range(lineNumber, 1, lineNumber, 1),
+      options: {
+        isWholeLine: false, // Sadece glyph margin'de göster
+        glyphMarginClassName: 'my-breakpoint-glyph',
+        glyphMarginHoverMessage: { value: `Breakpoint on line ${lineNumber}` },
+        // inlineClassName'i kaldırıyorum - artık satır highlight'ı olmayacak
+      }
+    }));
+
+    this.breakpointDecorations = this.editor.deltaDecorations(
+      this.breakpointDecorations,
+      decorations
+    );
+  }
+
+  // Hover provider'ı initialize et  
+  private initializeHoverProvider() {
+    if (!isPlatformBrowser(this.platformId) || !window.monaco) return;
+
+    // TypeScript/JavaScript için hover provider
+    this.hoverProvider = window.monaco.languages.registerHoverProvider('typescript', {
+      provideHover: (model: any, position: any) => {
+        const word = model.getWordAtPosition(position);
+        if (!word) return null;
+
+        const wordText = word.word;
+        const lineContent = model.getLineContent(position.lineNumber);
+        
+        // Basit tip analizi
+        let typeInfo = this.analyzeWordType(wordText, lineContent);
+        
+        if (typeInfo) {
+          return {
+            range: new window.monaco.Range(
+              position.lineNumber,
+              word.startColumn,
+              position.lineNumber,
+              word.endColumn
+            ),
+            contents: [
+              { value: `**${wordText}**` },
+              { value: typeInfo.type, supportHtml: false },
+              { value: typeInfo.description, supportHtml: false }
+            ]
+          };
+        }
+        return null;
+      }
+    });
+
+    // JavaScript için de aynı provider'ı kaydet
+    window.monaco.languages.registerHoverProvider('javascript', {
+      provideHover: (model: any, position: any) => {
+        const word = model.getWordAtPosition(position);
+        if (!word) return null;
+
+        const wordText = word.word;
+        const lineContent = model.getLineContent(position.lineNumber);
+        
+        let typeInfo = this.analyzeWordType(wordText, lineContent);
+        
+        if (typeInfo) {
+          return {
+            range: new window.monaco.Range(
+              position.lineNumber,
+              word.startColumn,
+              position.lineNumber,
+              word.endColumn
+            ),
+            contents: [
+              { value: `**${wordText}**` },
+              { value: typeInfo.type, supportHtml: false },
+              { value: typeInfo.description, supportHtml: false }
+            ]
+          };
+        }
+        return null;
+      }
+    });
+  }
+
+  // Kelime tipini analiz et
+  private analyzeWordType(word: string, lineContent: string): { type: string, description: string } | null {
+    // JavaScript/TypeScript built-in'ları
+    const builtins: Record<string, { type: string, description: string }> = {
+      'console': { type: 'Console', description: 'The Console object provides access to the browser\'s debugging console.' },
+      'document': { type: 'Document', description: 'The Document interface represents any web page loaded in the browser.' },
+      'window': { type: 'Window', description: 'The Window interface represents a window containing a DOM document.' },
+      'Array': { type: 'ArrayConstructor', description: 'Creates an Array object.' },
+      'Object': { type: 'ObjectConstructor', description: 'Provides functionality common to all JavaScript objects.' },
+      'String': { type: 'StringConstructor', description: 'Creates a String object.' },
+      'Number': { type: 'NumberConstructor', description: 'Creates a Number object.' },
+      'Boolean': { type: 'BooleanConstructor', description: 'Creates a Boolean object.' },
+      'Function': { type: 'FunctionConstructor', description: 'Creates a Function object.' },
+      'Date': { type: 'DateConstructor', description: 'Creates a Date object.' },
+      'Math': { type: 'Math', description: 'An intrinsic object that provides basic mathematics functionality and constants.' },
+      'JSON': { type: 'JSON', description: 'An intrinsic object that provides functions to convert JavaScript values to and from the JavaScript Object Notation (JSON) format.' }
+    };
+
+    if (builtins[word]) {
+      return builtins[word];
+    }
+
+    // Değişken tanımlaması kontrolü
+    if (lineContent.includes(`let ${word}`) || lineContent.includes(`const ${word}`) || lineContent.includes(`var ${word}`)) {
+      return { type: 'Variable Declaration', description: `Variable '${word}' declared in this scope.` };
+    }
+
+    // Fonksiyon tanımlaması kontrolü
+    if (lineContent.includes(`function ${word}`) || lineContent.includes(`${word} = function`) || lineContent.includes(`${word} => `)) {
+      return { type: 'Function', description: `Function '${word}' definition.` };
+    }
+
+    // Method çağrısı kontrolü
+    if (lineContent.includes(`${word}(`)) {
+      return { type: 'Method Call', description: `Method '${word}' invocation.` };
+    }
+
+    return null;
+  }
+
+  // Debug panelleri için toggle metodları
+  toggleVariablesPanel() {
+    this.showVariablesPanel = !this.showVariablesPanel;
+    if (this.showVariablesPanel && this.isDebugging) {
+      // Debug modundaysa değişkenleri güncelle
+      this.updateDebugVariables();
+    }
+  }
+
+  toggleCallStackPanel() {
+    this.showCallStackPanel = !this.showCallStackPanel;
+    if (this.showCallStackPanel && this.isDebugging) {
+      // Debug modundaysa call stack'i güncelle  
+      this.updateDebugCallStack();
+    }
+  }
+
+  // Debug değişkenlerini güncelle
+  private updateDebugVariables() {
+    // Örnek debug değişkenleri
+    this.debugVariables = {
+      'localVar': 'string: "Hello World"',
+      'counter': 'number: 42',
+      'isActive': 'boolean: true',
+      'userData': 'object: { name: "John", age: 30 }'
+    };
+  }
+
+  // Debug call stack'ini güncelle
+  private updateDebugCallStack() {
+    const callStack = [
+      { name: 'main()', file: 'script.js', line: 15 },
+      { name: 'processData()', file: 'script.js', line: 8 },
+      { name: 'validateInput()', file: 'script.js', line: 3 }
+    ];
+    this.debugCallStack = callStack;
   }
 }

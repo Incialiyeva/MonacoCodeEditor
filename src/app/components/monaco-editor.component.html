@@ -57,7 +57,109 @@
       Output
     </button>
   </div>
+  
+  <!-- Debug Control Buttons -->
+  <div class="debug-control-buttons" *ngIf="isDebugging">
+    <button class="debug-control-btn variables-btn" 
+            (click)="toggleVariablesPanel()"
+            [class.active]="showVariablesPanel"
+            title="Toggle Variables Panel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7v10c0 5.55 3.84 10 9 11 1.16.21 2.76.21 3.91 0C20.16 27 24 22.55 24 17V7l-10-5z" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 12h8M8 16h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Variables
+    </button>
+    
+    <button class="debug-control-btn callstack-btn" 
+            (click)="toggleCallStackPanel()"
+            [class.active]="showCallStackPanel"
+            title="Toggle Call Stack Panel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+        <rect x="3" y="10" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+        <rect x="3" y="17" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      Call Stack
+    </button>
+  </div>
 </div>
+
+<!-- Debug Panels -->
+<div class="debug-panels" *ngIf="isDebugging">
+  <!-- Variables Panel -->
+  <div class="debug-panel" *ngIf="showVariablesPanel">
+    <div class="debug-panel-header">
+      <div class="debug-panel-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7v10c0 5.55 3.84 10 9 11 1.16.21 2.76.21 3.91 0C20.16 27 24 22.55 24 17V7l-10-5z" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 12h8M8 16h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Variables
+      </div>
+      <button class="debug-panel-close" (click)="showVariablesPanel = false">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+          <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="debug-panel-content">
+      <div class="debug-variable" *ngFor="let variable of debugVariables | keyvalue">
+        <div class="variable-name">{{ variable.key }}</div>
+        <div class="variable-value">{{ variable.value }}</div>
+      </div>
+      <div class="debug-variable" *ngIf="(debugVariables | keyvalue).length === 0">
+        <div class="variable-name">-</div>
+        <div class="variable-value">No variables in current scope</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Call Stack Panel -->
+  <div class="debug-panel" *ngIf="showCallStackPanel">
+    <div class="debug-panel-header">
+      <div class="debug-panel-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+          <rect x="3" y="10" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+          <rect x="3" y="17" width="18" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        Call Stack
+      </div>
+      <button class="debug-panel-close" (click)="showCallStackPanel = false">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+          <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="debug-panel-content">
+      <div class="debug-stack-frame" *ngFor="let frame of debugCallStack">
+        <svg class="stack-frame-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <div class="stack-frame-info">
+          <div class="stack-frame-name">{{ frame.name }}</div>
+          <div class="stack-frame-location">{{ frame.file }}:{{ frame.line }}</div>
+        </div>
+      </div>
+      <div class="debug-stack-frame" *ngIf="debugCallStack.length === 0">
+        <svg class="stack-frame-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+          <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <div class="stack-frame-info">
+          <div class="stack-frame-name">No call stack available</div>
+          <div class="stack-frame-location">Debug mode not active</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="editor-area" (click)="closeDownloadMenu()">
   <div #editorContainer class="editor-container" style="width:100%;height:400px;"></div>
   <div class="dialog-bottom-buttons">
