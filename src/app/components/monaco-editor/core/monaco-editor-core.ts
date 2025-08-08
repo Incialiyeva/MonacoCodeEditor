@@ -1,9 +1,9 @@
 import { isPlatformBrowser } from '@angular/common';
-import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../features/intellisense/monaco-intellisense.provider';
-import { MonacoLanguageRegistryService } from '../services/monaco-language-registry.service';
-import { EnhancedSQLLanguageService } from '../services/enhanced-sql-language.service';
-import { MonacoEditorFileManagerService } from './monaco-editor-file-manager.service';
-import { MonacoEditorHoverService } from './monaco-editor-hover.service';
+import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../../../features/intellisense/monaco-intellisense.provider';
+import { MonacoLanguageRegistryService } from '../../../services/monaco-language-registry.service';
+import { EnhancedSQLLanguageService } from '../../../services/enhanced-sql-language.service';
+import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-manager.service';
+import { MonacoEditorHoverService } from '../services/monaco-editor-hover.service';
 
 declare global {
   interface Window {

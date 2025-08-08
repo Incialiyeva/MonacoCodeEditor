@@ -4,21 +4,21 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Feature importları
-import { SQLExecutorService, SQLResult } from '../services/sql-executor.service';
-import { MonacoLanguageRegistryService } from '../services/monaco-language-registry.service';
-import { EnhancedSQLLanguageService } from '../services/enhanced-sql-language.service';
+import { SQLExecutorService, SQLResult } from '../../services/sql-executor.service';
+import { MonacoLanguageRegistryService } from '../../services/monaco-language-registry.service';
+import { EnhancedSQLLanguageService } from '../../services/enhanced-sql-language.service';
 
 // Yeni servisler
-import { MonacoEditorTabManagerService } from './monaco-editor-tab-manager.service';
-import { MonacoEditorCodeExecutorService } from './monaco-editor-code-executor.service';
-import { MonacoEditorFileManagerService } from './monaco-editor-file-manager.service';
-import { MonacoEditorHoverService } from './monaco-editor-hover.service';
+import { MonacoEditorTabManagerService } from './services/monaco-editor-tab-manager.service';
+import { MonacoEditorCodeExecutorService } from './services/monaco-editor-code-executor.service';
+import { MonacoEditorFileManagerService } from './services/monaco-editor-file-manager.service';
+import { MonacoEditorHoverService } from './services/monaco-editor-hover.service';
 
 // Yeni modüler sınıflar
-import { MonacoEditorCore } from './monaco-editor-core';
-import { MonacoEditorActions } from './monaco-editor-actions';
-import { MonacoEditorDebug } from './monaco-editor-debug';
-import { MonacoEditorUI } from './monaco-editor-ui';
+import { MonacoEditorCore } from './core/monaco-editor-core';
+import { MonacoEditorActions } from './actions/monaco-editor-actions';
+import { MonacoEditorDebug } from './debug/monaco-editor-debug';
+import { MonacoEditorUI } from './ui/monaco-editor-ui';
 
 declare global {
   interface Window {

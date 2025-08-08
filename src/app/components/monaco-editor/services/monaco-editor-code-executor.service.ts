@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { SQLExecutorService, SQLResult } from '../services/sql-executor.service';
-import { validateHTML } from '../features/language/html-validation.util';
-import { validateSQL } from '../features/language/sql-validation.util';
+import { SQLExecutorService, SQLResult } from '../../../services/sql-executor.service';
+import { validateHTML } from '../../../features/language/html-validation.util';
+import { validateSQL } from '../../../features/language/sql-validation.util';
 
 export interface ExecutionResult {
   output: string;
@@ -166,7 +166,7 @@ export class MonacoEditorCodeExecutorService {
       
       if (!validation.isValid) {
         output += '\nSQL Validation Warnings:\n';
-        validation.errors.forEach(error => {
+        validation.errors.forEach((error: string) => {
           output += `⚠️ ${error}\n`;
         });
         output += '\n📄 Continuing execution...\n\n';
@@ -201,7 +201,7 @@ export class MonacoEditorCodeExecutorService {
       return output;
     }
 
-    result.data.forEach((statementResult, index) => {
+    result.data.forEach((statementResult: any, index: number) => {
       output += `--- Statement ${index + 1} ---\n`;
       
       if (statementResult.columns && statementResult.values) {
@@ -376,7 +376,7 @@ export class MonacoEditorCodeExecutorService {
       const validation = validateHTML(code);
       if (!validation.isValid) {
         output += '\nHTML Validation Issues:\n';
-        validation.errors.forEach(error => {
+        validation.errors.forEach((error: string) => {
           output += `- ${error}\n`;
         });
       } else {

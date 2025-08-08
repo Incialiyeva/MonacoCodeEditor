@@ -1,10 +1,10 @@
 import { isPlatformBrowser } from '@angular/common';
-import { formatWithPrettier } from '../features/prettier/prettier-format.util';
-import { showMonacoDiff } from '../features/diff/monaco-diff.util';
-import { applyMonacoTheme } from '../features/theme/monaco-theme.util';
-import { validateHTML } from '../features/language/html-validation.util';
-import { validateSQL } from '../features/language/sql-validation.util';
-import { MonacoEditorFileManagerService } from './monaco-editor-file-manager.service';
+import { formatWithPrettier } from '../../../features/prettier/prettier-format.util';
+import { showMonacoDiff } from '../../../features/diff/monaco-diff.util';
+import { applyMonacoTheme } from '../../../features/theme/monaco-theme.util';
+import { validateHTML } from '../../../features/language/html-validation.util';
+import { validateSQL } from '../../../features/language/sql-validation.util';
+import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-manager.service';
 
 declare global {
   interface Window {

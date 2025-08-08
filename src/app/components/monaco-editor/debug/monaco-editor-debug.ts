@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { MonacoEditorCodeExecutorService } from './monaco-editor-code-executor.service';
+import { MonacoEditorCodeExecutorService } from '../services/monaco-editor-code-executor.service';
 
 declare global {
   interface Window {

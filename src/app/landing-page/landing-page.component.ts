@@ -1,6 +1,6 @@
 import { Component, Inject, PLATFORM_ID, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MonacoEditorComponent } from '../components/monaco-editor.component';
+import { MonacoEditorComponent } from '../components/monaco-editor/monaco-editor.component';
 import { isPlatformBrowser } from '@angular/common';
 
 @Component({
