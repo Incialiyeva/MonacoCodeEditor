@@ -2,28 +2,28 @@
 // Bu dosya tüm stil modüllerini import eder
 
 // Ana host stilleri
-@import './styles/host';
+@use './styles/host';
 
 // Toolbar stilleri
-@import './styles/toolbar';
+@use './styles/toolbar';
 
 // Output panel stilleri
-@import './styles/output-panel';
+@use './styles/output-panel';
 
 // Editor area stilleri
-@import './styles/editor-area';
+@use './styles/editor-area';
 
 // Dialog butonları stilleri
-@import './styles/dialog-buttons';
+@use './styles/dialog-buttons';
 
 // Menu stilleri
-@import './styles/menu';
+@use './styles/menu';
 
 // Modal stilleri
-@import './styles/modal';
+@use './styles/modal';
 
 // Debug panelleri stilleri
-@import './styles/debug-panels';
+@use './styles/debug-panels';
 
 // Tema seçici stilleri
-@import './styles/theme-selector'; 
+@use './styles/theme-selector'; 

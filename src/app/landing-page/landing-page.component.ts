@@ -113,7 +113,9 @@ export class LandingPageComponent {
   toggleRunDebugPanel() {
     this.showRunDebugPanel = !this.showRunDebugPanel;
     if (this.monacoEditor) {
-      this.monacoEditor.showToolbar = this.showRunDebugPanel;
+      if (this.showRunDebugPanel) {
+        this.monacoEditor.toggleToolbar();
+      }
     }
   }
 } 

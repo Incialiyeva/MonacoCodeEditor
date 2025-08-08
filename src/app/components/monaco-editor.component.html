@@ -47,7 +47,7 @@
     </button>
     
     <button class="toolbar-btn output-btn" 
-            (click)="showRunOutput = !showRunOutput"
+            (click)="toggleRunOutput()"
             [class.active]="showRunOutput"
             title="Toggle Output Panel">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -97,7 +97,7 @@
         </svg>
         Variables
       </div>
-      <button class="debug-panel-close" (click)="showVariablesPanel = false">
+      <button class="debug-panel-close" (click)="closeVariablesPanel()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
           <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
           <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
@@ -127,7 +127,7 @@
         </svg>
         Call Stack
       </div>
-      <button class="debug-panel-close" (click)="showCallStackPanel = false">
+      <button class="debug-panel-close" (click)="closeCallStackPanel()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
           <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
           <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
