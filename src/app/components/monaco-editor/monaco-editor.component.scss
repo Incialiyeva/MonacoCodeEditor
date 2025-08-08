@@ -1,0 +1,29 @@
+// Monaco Editor Component Styles
+// Bu dosya tüm stil modüllerini import eder
+
+// Ana host stilleri
+@use './styles/host';
+
+// Toolbar stilleri
+@use './styles/toolbar';
+
+// Output panel stilleri
+@use './styles/output-panel';
+
+// Editor area stilleri
+@use './styles/editor-area';
+
+// Dialog butonları stilleri
+@use './styles/dialog-buttons';
+
+// Menu stilleri
+@use './styles/menu';
+
+// Modal stilleri
+@use './styles/modal';
+
+// Debug panelleri stilleri
+@use './styles/debug-panels';
+
+// Tema seçici stilleri
+@use './styles/theme-selector'; 
