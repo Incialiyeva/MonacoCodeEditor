@@ -15,10 +15,15 @@ export interface GlobalBinding<T = any> {
   definition: string;
 }
 
+export interface ThisContext {
+  [key: string]: any;
+}
+
 export class MonacoContextRegistry {
   private monaco: any;
   private registered: Set<string> = new Set();
   private bindings: GlobalBinding[] = [];
+  private thisContext: ThisContext = {};
 
   constructor(options: MonacoContextRegistryOptions) {
     this.monaco = options.monaco;
@@ -38,6 +43,52 @@ export class MonacoContextRegistry {
     } catch (err) {
       console.error(`[MonacoContextRegistry] Failed to load static definitions:`, err);
     }
+  }
+
+  /**
+   * Set the this context object (what shows up when typing 'this.')
+   */
+  setThisContext(context: ThisContext): void {
+    this.thisContext = context;
+    this.updateThisContextDefinition();
+  }
+
+  /**
+   * Update the this context definition in Monaco
+   */
+  private updateThisContextDefinition(): void {
+    const definition = this.generateThisContextDefinition();
+    this.registerBinding({ 
+      name: '__THIS__', 
+      value: this.thisContext, 
+      definition 
+    });
+  }
+
+  /**
+   * Generate .d.ts for this context
+   */
+  private generateThisContextDefinition(): string {
+    const lines: string[] = [];
+    for (const key of Object.keys(this.thisContext)) {
+      const val = this.thisContext[key];
+      if (typeof val === 'function') {
+        const argCount = Math.max(val.length, 0);
+        const args = Array.from({ length: argCount }, (_, i) => `arg${i}: any`).join(', ');
+        lines.push(`  ${key}(${args}): any;`);
+      } else {
+        lines.push(`  ${key}: any;`);
+      }
+    }
+
+    return `
+declare global {
+  interface ThisContext {
+${lines.join('\n')}
+  }
+  declare const __THIS__: ThisContext;
+}
+export {};`;
   }
 
   /**
@@ -73,14 +124,6 @@ export class MonacoContextRegistry {
       .map(key => `  ${key}: any; // inferred placeholder`)
       .join("\n");
 
-    if (name === 'this') {
-      return `
-declare global {
-  var this: any; // preserved global context
-}
-export {};`;
-    }
-
     return `
 declare global {
   var ${name}: {
@@ -95,6 +138,13 @@ export {};`;
    */
   getRegisteredBindings(): string[] {
     return [...this.registered];
+  }
+
+  /**
+   * Get this context object
+   */
+  getThisContext(): ThisContext {
+    return this.thisContext;
   }
 
   /**
@@ -117,6 +167,7 @@ export class MonacoIntelliSenseProvider {
   private monaco: any;
   private registry: MonacoContextRegistry;
   private loadedLibs: Map<string, GlobalBinding> = new Map();
+  private completionDisposable: any;
 
   constructor(monaco: any, staticDefsPath?: string) {
     this.monaco = monaco;
@@ -126,153 +177,152 @@ export class MonacoIntelliSenseProvider {
   private configureCompiler(): void {
     const tsDefaults = this.monaco.languages.typescript.typescriptDefaults;
     const jsDefaults = this.monaco.languages.typescript.javascriptDefaults;
+    
+    // Critical: Disable default libraries to show only our custom APIs
     const commonOpts = {
       allowNonTsExtensions: true,
       noEmit: true,
       skipLibCheck: true,
+      noLib: true, // <-- Critical: Only our ExtraLibs will be used
       target: this.monaco.languages.typescript.ScriptTarget.Latest,
       moduleResolution: this.monaco.languages.typescript.ModuleResolutionKind.NodeJs,
       allowJs: true,
       checkJs: false,
     };
+    
     tsDefaults.setCompilerOptions(commonOpts as any);
     jsDefaults.setCompilerOptions(commonOpts as any);
     jsDefaults.setEagerModelSync(true);
   }
 
+  private setupCustomCompletionProvider(): void {
+    // Register custom completion provider for 'this.' context
+    this.completionDisposable = this.monaco.languages.registerCompletionItemProvider('javascript', {
+      triggerCharacters: ['.'],
+      provideCompletionItems: (model: any, position: any) => {
+        const text = model.getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column
+        });
+
+        // Only provide suggestions for 'this.'
+        if (!text.endsWith('this.')) {
+          return { suggestions: [] };
+        }
+
+        // Return this context members
+        const thisContext = this.registry.getThisContext();
+        const items = this.buildThisContextCompletions(thisContext);
+        return { suggestions: items };
+      }
+    });
+  }
+
+  private buildThisContextCompletions(ctx: Record<string, any>) {
+    return Object.keys(ctx).map(k => {
+      const isFn = typeof ctx[k] === 'function';
+      return {
+        label: k,
+        kind: isFn ? this.monaco.languages.CompletionItemKind.Function
+                   : this.monaco.languages.CompletionItemKind.Property,
+        insertText: k,
+        sortText: '000' + k, // Our items appear first
+        range: undefined as any
+      };
+    });
+  }
+
   initialize(): void {
     this.configureCompiler();
+    this.setupCustomCompletionProvider();
 
-    // HTML için global tanımlar ekle
-    this.registry.register('document',
-      { 
-        getElementById: (id: string) => null,
-        querySelector: (selector: string) => null,
-        querySelectorAll: (selector: string) => [],
-        createElement: (tagName: string) => null,
-        addEventListener: (event: string, callback: Function) => {}
-      },
-      `declare global { 
-        var document: {
-          getElementById(id: string): HTMLElement | null;
-          querySelector(selector: string): Element | null;
-          querySelectorAll(selector: string): NodeList;
-          createElement(tagName: string): HTMLElement;
-          addEventListener(event: string, callback: EventListener): void;
-          body: HTMLBodyElement;
-          head: HTMLHeadElement;
-          title: string;
-        }; 
-      } export {};`
-    );
+    // Example services - these will be the only APIs available
+    const recordService = {
+      getById: (id: number) => ({ id, name: 'Example' }),
+      save: (dto: any) => true,
+      delete: (id: number) => true,
+      getAll: () => []
+    };
 
-    // HTML DOM elements için tip tanımları
-    this.registry.register('HTMLElement',
-      {},
+    const formApi = {
+      open: (code: string) => {},
+      close: () => {},
+      getValue: (field: string) => '',
+      setValue: (field: string, value: any) => {}
+    };
+
+    const dialogApi = {
+      alert: (message: string) => {},
+      confirm: (message: string) => true,
+      prompt: (message: string) => ''
+    };
+
+    // Register global APIs
+    this.registry.register('recordService', recordService,
       `declare global {
-        interface HTMLElement {
-          innerHTML: string;
-          textContent: string;
-          className: string;
-          id: string;
-          style: CSSStyleDeclaration;
-          addEventListener(type: string, listener: EventListener): void;
-          removeEventListener(type: string, listener: EventListener): void;
-          click(): void;
-          focus(): void;
-          blur(): void;
-        }
-        interface HTMLInputElement extends HTMLElement {
-          value: string;
-          checked: boolean;
-          disabled: boolean;
-          placeholder: string;
-          type: string;
-        }
-        interface HTMLButtonElement extends HTMLElement {
-          disabled: boolean;
-          type: string;
-        }
-      } export {};`
-    );
-
-    // SQL için global tanımlar
-    this.registry.register('sql',
-      {
-        query: (sql: string) => [],
-        execute: (sql: string) => true,
-        transaction: (callback: Function) => {}
-      },
-      `declare global {
-        var sql: {
-          query(sql: string): any[];
-          execute(sql: string): boolean;
-          transaction(callback: () => void): void;
+        var recordService: {
+          getById(id: number): any;
+          save(dto: any): boolean;
+          delete(id: number): boolean;
+          getAll(): any[];
         };
       } export {};`
     );
 
-    // --- MonacoIntelliSenseProvider.ts içinde, initialize() metodunun sonuna ekleyin ---
-this.registry.register(
-  'newObject',
-  {
-    foo: (x: number) => x * 2,
-    bar: (s: string) => s.toUpperCase(),
-  },
-  `declare global {
-     var newObject: {
-       foo(x: number): number;
-       bar(s: string): string;
-     };
-   }
-   export {};`
-);
-
-    
-
-    // Example of registering core globals with static definitions
-    this.registry.register('recordService',
-      { id: 1, name: 'RecordService', getRecords: () => [] },
-      // Hint: content can be moved to a file under staticDefsPath
-      `declare global { var recordService: { id: number; name: string; getRecords(): any[]; }; } export {};`
+    this.registry.register('form', formApi,
+      `declare global {
+        var form: {
+          open(code: string): void;
+          close(): void;
+          getValue(field: string): any;
+          setValue(field: string, value: any): void;
+        };
+      } export {};`
     );
 
-    this.registry.register('form',
-      { getValue: (f: string) => '', setValue: (f: string, v: any) => {} },
-      `declare global { var form: { getValue(field: string): any; setValue(field: string, value: any): void; }; } export {};`
+    this.registry.register('dialog', dialogApi,
+      `declare global {
+        var dialog: {
+          alert(message: string): void;
+          confirm(message: string): boolean;
+          prompt(message: string): string;
+        };
+      } export {};`
     );
 
-    this.registry.register('dialog',
-      { alert: (m: string) => {}, confirm: (m: string) => true },
-      `declare global { var dialog: { alert(msg: string): void; confirm(msg: string): boolean; }; } export {};`
-    );
+    // Set this context - what appears when typing 'this.'
+    const thisContext = {
+      userName: 'User',
+      hasPermission: (perm: string) => true,
+      recordService: recordService,
+      form: formApi,
+      dialog: dialogApi,
+      currentRecord: null,
+      isEditing: false
+    };
 
-    this.registry.register('myService',
-      { fetchData: async (u: string) => [], clearCache: () => {} },
-      `declare global { var myService: { fetchData(url: string): Promise<any>; clearCache(): void; }; } export {};`
-    );
-   // --- inside initialize() ---
-this.registry.register(
-  'yeniService',
-  {
-    fetchData: async (url: string) => { /* … */ return []; },
-    clearCache: () => { /* … */ }
-  },
-  // Tip tanımını buraya yazıyoruz
-  `declare global {
-     var yeniService: {
-       fetchData(url: string): Promise<any[]>;
-       clearCache(): void;
-     };
-   }
-   export {};`
-);
+    this.registry.setThisContext(thisContext);
 
+    console.log('[MonacoIntelliSenseProvider] Initialized with controlled API suggestions only');
+  }
 
-    // Preserve special 'this' global
-    this.registry.registerBinding({ name: 'this', value: (globalThis as any), definition: `declare global { var this: any; } export {};` });
-
-    console.log('[MonacoIntelliSenseProvider] Initialized with static and dynamic global bindings');
+  /**
+   * Configure editor to disable default suggestions
+   */
+  configureEditor(editor: any): void {
+    editor.updateOptions({
+      // Disable default suggestion behaviors
+      quickSuggestions: false,
+      wordBasedSuggestions: 'off',
+      snippetSuggestions: 'none',
+      suggestOnTriggerCharacters: true, // Only our custom provider will trigger
+      suggest: {
+        showWords: false,   // No word-based suggestions
+        showSnippets: false // No snippet suggestions
+      }
+    });
   }
 
   /**
@@ -281,7 +331,6 @@ this.registry.register(
   addLib(binding: GlobalBinding): void {
     this.registry.registerBinding(binding);
     this.loadedLibs.set(binding.name, binding);
-    
   }
 
   // Backward compatibility method
@@ -328,6 +377,15 @@ this.registry.register(
     this.loadedLibs.forEach((_, name) => this.registry.deregister(name));
     this.loadedLibs.clear();
     console.log('[MonacoIntelliSenseProvider] Cleared all libs');
+  }
+
+  /**
+   * Cleanup resources
+   */
+  dispose(): void {
+    if (this.completionDisposable) {
+      this.completionDisposable.dispose();
+    }
   }
 }
 
