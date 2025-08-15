@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "files": [
+    {
+      "path": "lib/core.d.ts",
+      "sha256": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+      "priority": 100,
+      "version": "1.0.0"
+    },
+    {
+      "path": "lib/dom-lite.d.ts",
+      "sha256": "b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890",
+      "priority": 90,
+      "version": "1.0.0"
+    },
+    {
+      "path": "app/sales-api.d.ts",
+      "sha256": "c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890ab",
+      "priority": 80,
+      "version": "1.2.0"
+    },
+    {
+      "path": "app/form-builder.d.ts",
+      "sha256": "d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcd",
+      "priority": 70,
+      "version": "1.1.0"
+    },
+    {
+      "path": "plugins/ui-controller.d.ts",
+      "sha256": "e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcde",
+      "priority": 60,
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "description": "IntelliSense definitions for controlled API access",
+    "author": "Development Team",
+    "lastUpdated": "2024-01-15T10:30:00Z",
+    "environment": "production"
+  }
+} 

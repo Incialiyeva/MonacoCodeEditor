@@ -1,9 +1,14 @@
 // --- MonacoContextRegistry.ts ---
 
+import { CompositeDisposable, IDisposable } from './composite-disposable';
+import { IntelliSenseManifestLoader, LoadedDefinition } from './intellisense-manifest';
+
 export interface MonacoContextRegistryOptions {
   monaco: any;
   /** Optional folder to load static .d.ts files from */
   staticDefinitionsPath?: string;
+  /** Optional manifest loader for static definitions */
+  manifestLoader?: IntelliSenseManifestLoader;
 }
 
 export interface GlobalBinding<T = any> {
@@ -19,14 +24,18 @@ export interface ThisContext {
   [key: string]: any;
 }
 
-export class MonacoContextRegistry {
+export class MonacoContextRegistry implements IDisposable {
   private monaco: any;
   private registered: Set<string> = new Set();
   private bindings: GlobalBinding[] = [];
   private thisContext: ThisContext = {};
+  private disposables = new CompositeDisposable();
+  private manifestLoader?: IntelliSenseManifestLoader;
 
   constructor(options: MonacoContextRegistryOptions) {
     this.monaco = options.monaco;
+    this.manifestLoader = options.manifestLoader;
+    
     // Load static definitions if provided
     if (options.staticDefinitionsPath) {
       this.loadStaticDefinitions(options.staticDefinitionsPath);
@@ -42,6 +51,39 @@ export class MonacoContextRegistry {
       console.log(`[MonacoContextRegistry] Static definitions path provided: ${folder}`);
     } catch (err) {
       console.error(`[MonacoContextRegistry] Failed to load static definitions:`, err);
+    }
+  }
+
+  /**
+   * Load definitions from manifest
+   */
+  async loadFromManifest(manifestPath?: string): Promise<void> {
+    if (!this.manifestLoader) {
+      console.warn('[MonacoContextRegistry] No manifest loader provided');
+      return;
+    }
+
+    try {
+      const definitions = await this.manifestLoader.loadFromManifest(manifestPath).toPromise();
+      
+      if (definitions) {
+        definitions.forEach(def => {
+          const disposable = this.monaco.languages.typescript.javascriptDefaults.addExtraLib(
+            def.content, 
+            def.path
+          );
+          
+          // Store disposable for cleanup
+          this.disposables.add(disposable);
+          
+          // Register with manifest loader for tracking
+          this.manifestLoader!.setDefinitionDisposable(def.path, disposable);
+          
+          console.log(`[MonacoContextRegistry] Loaded definition: ${def.path}`);
+        });
+      }
+    } catch (error) {
+      console.error('[MonacoContextRegistry] Failed to load manifest:', error);
     }
   }
 
@@ -97,8 +139,14 @@ export {};`;
   registerBinding<T>(binding: GlobalBinding<T>): void {
     const { name, definition } = binding;
     if (this.registered.has(name)) return;
-    this.monaco.languages.typescript.javascriptDefaults.addExtraLib(definition, `${name}.d.ts`);
-    this.monaco.languages.typescript.typescriptDefaults.addExtraLib(definition, `${name}.d.ts`);
+    
+    const jsDisposable = this.monaco.languages.typescript.javascriptDefaults.addExtraLib(definition, `${name}.d.ts`);
+    const tsDisposable = this.monaco.languages.typescript.typescriptDefaults.addExtraLib(definition, `${name}.d.ts`);
+    
+    // Add disposables to composite
+    this.disposables.add(jsDisposable);
+    this.disposables.add(tsDisposable);
+    
     this.registered.add(name);
     this.bindings.push(binding);
     console.log(`[MonacoContextRegistry] Registered: ${name}`);
@@ -152,26 +200,45 @@ export {};`;
    */
   deregister(name: string): void {
     if (!this.registered.has(name)) return;
+    
     const fileName = `${name}.d.ts`;
-    this.monaco.languages.typescript.javascriptDefaults.removeExtraLib(fileName);
-    this.monaco.languages.typescript.typescriptDefaults.removeExtraLib(fileName);
+    
+    // Note: Monaco doesn't provide a direct way to remove specific libs
+    // We'll rely on the composite disposable to handle cleanup
+    console.log(`[MonacoContextRegistry] Deregistered: ${name}`);
+    
     this.registered.delete(name);
     this.bindings = this.bindings.filter(b => b.name !== name);
-    console.log(`[MonacoContextRegistry] Deregistered: ${name}`);
+  }
+
+  /**
+   * Dispose all resources
+   */
+  dispose(): void {
+    console.log('[MonacoContextRegistry] Disposing registry');
+    this.disposables.dispose();
+    this.registered.clear();
+    this.bindings = [];
   }
 }
 
 // --- MonacoIntelliSenseProvider.ts ---
 
-export class MonacoIntelliSenseProvider {
+export class MonacoIntelliSenseProvider implements IDisposable {
   private monaco: any;
   private registry: MonacoContextRegistry;
   private loadedLibs: Map<string, GlobalBinding> = new Map();
-  private completionDisposable: any;
+  private disposables = new CompositeDisposable();
+  private manifestLoader?: IntelliSenseManifestLoader;
 
-  constructor(monaco: any, staticDefsPath?: string) {
+  constructor(monaco: any, staticDefsPath?: string, manifestLoader?: IntelliSenseManifestLoader) {
     this.monaco = monaco;
-    this.registry = new MonacoContextRegistry({ monaco, staticDefinitionsPath: staticDefsPath });
+    this.manifestLoader = manifestLoader;
+    this.registry = new MonacoContextRegistry({ 
+      monaco, 
+      staticDefinitionsPath: staticDefsPath,
+      manifestLoader 
+    });
   }
 
   private configureCompiler(): void {
@@ -197,7 +264,7 @@ export class MonacoIntelliSenseProvider {
 
   private setupCustomCompletionProvider(): void {
     // Register custom completion provider for 'this.' context
-    this.completionDisposable = this.monaco.languages.registerCompletionItemProvider('javascript', {
+    const completionDisposable = this.monaco.languages.registerCompletionItemProvider('javascript', {
       triggerCharacters: ['.'],
       provideCompletionItems: (model: any, position: any) => {
         const text = model.getValueInRange({
@@ -218,6 +285,8 @@ export class MonacoIntelliSenseProvider {
         return { suggestions: items };
       }
     });
+
+    this.disposables.add(completionDisposable);
   }
 
   private buildThisContextCompletions(ctx: Record<string, any>) {
@@ -234,29 +303,38 @@ export class MonacoIntelliSenseProvider {
     });
   }
 
-  initialize(): void {
+  async initialize(): Promise<void> {
     this.configureCompiler();
     this.setupCustomCompletionProvider();
 
+    // Load from manifest if available
+    if (this.manifestLoader) {
+      await this.registry.loadFromManifest();
+    }
+
     // Example services - these will be the only APIs available
     const recordService = {
-      getById: (id: number) => ({ id, name: 'Example' }),
+      getById: (id: number) => ({ id, name: 'Example Record', status: 'active' }),
       save: (dto: any) => true,
       delete: (id: number) => true,
-      getAll: () => []
+      getAll: () => [],
+      search: (query: string) => []
     };
 
     const formApi = {
       open: (code: string) => {},
       close: () => {},
       getValue: (field: string) => '',
-      setValue: (field: string, value: any) => {}
+      setValue: (field: string, value: any) => {},
+      validate: () => true
     };
 
     const dialogApi = {
       alert: (message: string) => {},
       confirm: (message: string) => true,
-      prompt: (message: string) => ''
+      prompt: (message: string) => '',
+      showLoading: (message: string) => {},
+      hideLoading: () => {}
     };
 
     // Register global APIs
@@ -267,6 +345,7 @@ export class MonacoIntelliSenseProvider {
           save(dto: any): boolean;
           delete(id: number): boolean;
           getAll(): any[];
+          search(query: string): any[];
         };
       } export {};`
     );
@@ -278,6 +357,7 @@ export class MonacoIntelliSenseProvider {
           close(): void;
           getValue(field: string): any;
           setValue(field: string, value: any): void;
+          validate(): boolean;
         };
       } export {};`
     );
@@ -288,6 +368,8 @@ export class MonacoIntelliSenseProvider {
           alert(message: string): void;
           confirm(message: string): boolean;
           prompt(message: string): string;
+          showLoading(message: string): void;
+          hideLoading(): void;
         };
       } export {};`
     );
@@ -348,8 +430,8 @@ export class MonacoIntelliSenseProvider {
     const lib = this.loadedLibs.get(targetFileSrc.replace('.d.ts', ''));
     if (lib) {
       try {
-        this.monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.definition, targetFileSrc);
-        this.monaco.languages.typescript.typescriptDefaults.addExtraLib(lib.definition, targetFileSrc);
+        const disposable = this.monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.definition, targetFileSrc);
+        this.disposables.add(disposable);
         console.log(`[MonacoIntelliSenseProvider] Loaded lib: ${targetFileSrc}`);
       } catch (error) {
         console.error(`[MonacoIntelliSenseProvider] Error loading lib: ${targetFileSrc}`, error);
@@ -383,9 +465,10 @@ export class MonacoIntelliSenseProvider {
    * Cleanup resources
    */
   dispose(): void {
-    if (this.completionDisposable) {
-      this.completionDisposable.dispose();
-    }
+    console.log('[MonacoIntelliSenseProvider] Disposing provider');
+    this.disposables.dispose();
+    this.registry.dispose();
+    this.loadedLibs.clear();
   }
 }
 
@@ -394,8 +477,12 @@ export class MonacoIntelliSenseProvider {
 /**
  * Initialize with optional path to static .d.ts definitions
  */
-export function initializeMonacoIntelliSense(monaco: any, staticDefsPath?: string): MonacoIntelliSenseProvider {
-  const provider = new MonacoIntelliSenseProvider(monaco, staticDefsPath);
+export function initializeMonacoIntelliSense(
+  monaco: any, 
+  staticDefsPath?: string,
+  manifestLoader?: IntelliSenseManifestLoader
+): MonacoIntelliSenseProvider {
+  const provider = new MonacoIntelliSenseProvider(monaco, staticDefsPath, manifestLoader);
   provider.initialize();
   return provider;
 }
