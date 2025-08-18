@@ -20,14 +20,11 @@ import { MonacoEditorActions } from './actions/monaco-editor-actions';
 import { MonacoEditorDebug } from './debug/monaco-editor-debug';
 import { MonacoEditorUI } from './ui/monaco-editor-ui';
 
-// ThisContext Registry
-import { ThisContextRegistry } from '../../features/intellisense/this-context-registry.service';
-
 declare global {
   interface Window {
     require: any;
     monaco: any;
-    MonacoEnvironment?: import('monaco-editor').Environment;
+    MonacoEnvironment?: any;
   }
 }
 
@@ -64,8 +61,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     private tabManager: MonacoEditorTabManagerService,
     private codeExecutor: MonacoEditorCodeExecutorService,
     private fileManager: MonacoEditorFileManagerService,
-    private hoverService: MonacoEditorHoverService,
-    private thisContextRegistry: ThisContextRegistry
+    private hoverService: MonacoEditorHoverService
   ) {
     // Modüler sınıfları başlat - sıralama önemli
     this.editorUI = new MonacoEditorUI(
@@ -78,8 +74,7 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.monacoLanguageRegistry,
       this.enhancedSQLService,
       this.fileManager,
-      this.hoverService,
-      this.thisContextRegistry
+      this.hoverService
     );
 
     this.editorActions = new MonacoEditorActions(
@@ -172,74 +167,12 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.editor = editor;
       this.editorDebug.initializeBreakpointSupport(editor);
 
-      // ThisContext Registry'ye örnek objeler ekle
-      console.log('[MonacoEditorComponent] Adding sample objects to ThisContextRegistry...');
-      
-      this.thisContextRegistry.addThisObject('recordService', {
-        doc: 'Kayıt işlemleri',
-        methods: { 
-          get: '(id: number) => Promise<Record>', 
-          list: '() => Promise<Record[]>',
-          create: '(data: any) => Promise<Record>',
-          update: '(id: number, data: any) => Promise<Record>',
-          delete: '(id: number) => Promise<void>'
-        }
-      });
-      
-      this.thisContextRegistry.addThisObject('dialog', {
-        doc: 'Dialog işlemleri',
-        methods: { 
-          info: '(message: string) => void', 
-          confirm: '(message: string) => Promise<boolean>',
-          alert: '(message: string) => void',
-          prompt: '(message: string, defaultValue?: string) => Promise<string>'
-        }
-      });
-
-      this.thisContextRegistry.addThisObject('form', {
-        doc: 'Form işlemleri',
-        methods: { 
-          save: '() => Promise<void>', 
-          validate: '(schema?: any) => boolean',
-          reset: '() => void',
-          submit: '() => Promise<void>'
-        },
-        props: { 
-          title: 'string', 
-          isDirty: 'boolean',
-          isValid: 'boolean',
-          data: 'any'
-        }
-      });
-
-      console.log('[MonacoEditorComponent] Sample objects added successfully');
-
-      // Test provider'ın çalışıp çalışmadığını kontrol et
-      this.thisContextRegistry.testProvider();
-
-      // Manuel tetikleme ekle
-      this.editor.onKeyDown((e: any) => {
-        if (e.browserEvent.key === '.') {
-          setTimeout(() => {
-            const model = this.editor.getModel();
-            if (!model) return;
-            const pos = this.editor.getPosition()!;
-            const line = model.getLineContent(pos.lineNumber).slice(0, pos.column);
-            console.log('[MonacoEditorComponent] Key pressed: . on line:', line);
-            if (/\bthis\.$/.test(line) || /\bthis\.[A-Za-z_]\w*\.$/.test(line)) {
-              console.log('[MonacoEditorComponent] Triggering suggestions for this context');
-              this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
-            }
-          }, 10);
-        }
-      });
-
       this.editor.onDidChangeModelContent(() => {
         this.fileManager.updateScriptTemplate(this.selectedScriptIndex, this.editor.getValue());
         setTimeout(() => this.editorActions.checkCodeErrors(this.editor), 500);
       });
 
-      console.log('Monaco editor initialized successfully with ThisContext Registry');
+      console.log('Monaco editor initialized successfully');
     }).catch((error) => {
       console.error('Failed to initialize Monaco editor:', error);
     });

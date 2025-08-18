@@ -117,12 +117,10 @@ export class MonacoIntelliSenseProvider {
   private monaco: any;
   private registry: MonacoContextRegistry;
   private loadedLibs: Map<string, GlobalBinding> = new Map();
-  private staticDefsPath?: string;
 
   constructor(monaco: any, staticDefsPath?: string) {
     this.monaco = monaco;
     this.registry = new MonacoContextRegistry({ monaco, staticDefinitionsPath: staticDefsPath });
-    this.staticDefsPath = staticDefsPath;
   }
 
   private configureCompiler(): void {
@@ -143,84 +141,62 @@ export class MonacoIntelliSenseProvider {
   }
 
   initialize(): void {
-    // Sadece SQL ve HTML için provider kaydet (JavaScript için ThisContextRegistry kullanılacak)
-    this.monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: (model: any, position: any) => {
-        const suggestions = [
-          {
-            label: 'SELECT',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'SELECT',
-            documentation: 'SQL SELECT statement'
-          },
-          {
-            label: 'FROM',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'FROM',
-            documentation: 'SQL FROM clause'
-          },
-          {
-            label: 'WHERE',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'WHERE',
-            documentation: 'SQL WHERE clause'
-          },
-          {
-            label: 'INSERT',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'INSERT',
-            documentation: 'SQL INSERT statement'
-          },
-          {
-            label: 'UPDATE',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'UPDATE',
-            documentation: 'SQL UPDATE statement'
-          },
-          {
-            label: 'DELETE',
-            kind: this.monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'DELETE',
-            documentation: 'SQL DELETE statement'
-          }
-        ];
-        return { suggestions };
-      }
-    });
+    this.configureCompiler();
 
-    this.monaco.languages.registerCompletionItemProvider('html', {
-      provideCompletionItems: (model: any, position: any) => {
-        const suggestions = [
-          {
-            label: 'div',
-            kind: this.monaco.languages.CompletionItemKind.Class,
-            insertText: '<div>',
-            insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'HTML div element'
-          },
-          {
-            label: 'span',
-            kind: this.monaco.languages.CompletionItemKind.Class,
-            insertText: '<span>',
-            insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'HTML span element'
-          },
-          {
-            label: 'button',
-            kind: this.monaco.languages.CompletionItemKind.Class,
-            insertText: '<button>',
-            insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'HTML button element'
-          }
-        ];
-        return { suggestions };
-      }
-    });
+    // HTML için global tanımlar ekle
+    this.registry.register('document',
+      { 
+        getElementById: (id: string) => null,
+        querySelector: (selector: string) => null,
+        querySelectorAll: (selector: string) => [],
+        createElement: (tagName: string) => null,
+        addEventListener: (event: string, callback: Function) => {}
+      },
+      `declare global { 
+        var document: {
+          getElementById(id: string): HTMLElement | null;
+          querySelector(selector: string): Element | null;
+          querySelectorAll(selector: string): NodeList;
+          createElement(tagName: string): HTMLElement;
+          addEventListener(event: string, callback: EventListener): void;
+          body: HTMLBodyElement;
+          head: HTMLHeadElement;
+          title: string;
+        }; 
+      } export {};`
+    );
 
-    // JavaScript için provider kaydetmiyoruz - ThisContextRegistry kullanılacak
-    console.log('[MonacoIntelliSenseProvider] Initialized for SQL and HTML only (JavaScript uses ThisContextRegistry)');
+    // HTML DOM elements için tip tanımları
+    this.registry.register('HTMLElement',
+      {},
+      `declare global {
+        interface HTMLElement {
+          innerHTML: string;
+          textContent: string;
+          className: string;
+          id: string;
+          style: CSSStyleDeclaration;
+          addEventListener(type: string, listener: EventListener): void;
+          removeEventListener(type: string, listener: EventListener): void;
+          click(): void;
+          focus(): void;
+          blur(): void;
+        }
+        interface HTMLInputElement extends HTMLElement {
+          value: string;
+          checked: boolean;
+          disabled: boolean;
+          placeholder: string;
+          type: string;
+        }
+        interface HTMLButtonElement extends HTMLElement {
+          disabled: boolean;
+          type: string;
+        }
+      } export {};`
+    );
 
-    // Global bindings kaydet (JavaScript dışında)
+    // SQL için global tanımlar
     this.registry.register('sql',
       {
         query: (sql: string) => [],
@@ -236,10 +212,67 @@ export class MonacoIntelliSenseProvider {
       } export {};`
     );
 
-    // Preserve special 'this' global (JavaScript için ThisContextRegistry kullanılacak)
-    // this.registry.registerBinding({ name: 'this', value: (globalThis as any), definition: `declare global { var this: any; } export {};` });
+    // --- MonacoIntelliSenseProvider.ts içinde, initialize() metodunun sonuna ekleyin ---
+this.registry.register(
+  'newObject',
+  {
+    foo: (x: number) => x * 2,
+    bar: (s: string) => s.toUpperCase(),
+  },
+  `declare global {
+     var newObject: {
+       foo(x: number): number;
+       bar(s: string): string;
+     };
+   }
+   export {};`
+);
 
-    console.log('[MonacoIntelliSenseProvider] Initialized with static and dynamic global bindings (excluding JavaScript)');
+    
+
+    // Example of registering core globals with static definitions
+    this.registry.register('recordService',
+      { id: 1, name: 'RecordService', getRecords: () => [] },
+      // Hint: content can be moved to a file under staticDefsPath
+      `declare global { var recordService: { id: number; name: string; getRecords(): any[]; }; } export {};`
+    );
+
+    this.registry.register('form',
+      { getValue: (f: string) => '', setValue: (f: string, v: any) => {} },
+      `declare global { var form: { getValue(field: string): any; setValue(field: string, value: any): void; }; } export {};`
+    );
+
+    this.registry.register('dialog',
+      { alert: (m: string) => {}, confirm: (m: string) => true },
+      `declare global { var dialog: { alert(msg: string): void; confirm(msg: string): boolean; }; } export {};`
+    );
+
+    this.registry.register('myService',
+      { fetchData: async (u: string) => [], clearCache: () => {} },
+      `declare global { var myService: { fetchData(url: string): Promise<any>; clearCache(): void; }; } export {};`
+    );
+   // --- inside initialize() ---
+this.registry.register(
+  'yeniService',
+  {
+    fetchData: async (url: string) => { /* … */ return []; },
+    clearCache: () => { /* … */ }
+  },
+  // Tip tanımını buraya yazıyoruz
+  `declare global {
+     var yeniService: {
+       fetchData(url: string): Promise<any[]>;
+       clearCache(): void;
+     };
+   }
+   export {};`
+);
+
+
+    // Preserve special 'this' global
+    this.registry.registerBinding({ name: 'this', value: (globalThis as any), definition: `declare global { var this: any; } export {};` });
+
+    console.log('[MonacoIntelliSenseProvider] Initialized with static and dynamic global bindings');
   }
 
   /**
