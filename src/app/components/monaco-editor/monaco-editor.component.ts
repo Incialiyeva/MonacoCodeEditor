@@ -2,6 +2,7 @@ import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, R
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import type { Environment } from 'monaco-editor';
 
 // Feature importları
 import { SQLExecutorService, SQLResult } from '../../services/sql-executor.service';
@@ -24,7 +25,7 @@ declare global {
   interface Window {
     require: any;
     monaco: any;
-    MonacoEnvironment?: any;
+    MonacoEnvironment?: Environment | undefined;
   }
 }
 

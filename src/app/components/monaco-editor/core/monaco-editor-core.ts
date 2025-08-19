@@ -4,12 +4,15 @@ import { MonacoLanguageRegistryService } from '../../../services/monaco-language
 import { EnhancedSQLLanguageService } from '../../../services/enhanced-sql-language.service';
 import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-manager.service';
 import { MonacoEditorHoverService } from '../services/monaco-editor-hover.service';
+import { ThisApiRegistry } from '../../../core/intellisense/this-api-registry.service';
+import { registerThisOnlyProvider } from '../../../core/intellisense/this-only-provider';
+import type { Environment } from 'monaco-editor';
 
 declare global {
   interface Window {
     require: any;
     monaco: any;
-    MonacoEnvironment?: any;
+    MonacoEnvironment?: Environment | undefined;
   }
 }
 
@@ -17,6 +20,8 @@ export class MonacoEditorCore {
   editor: any;
   intelliSenseProvider: MonacoIntelliSenseProvider | null = null;
   hoverProvider: any = null;
+  private thisApiRegistry: ThisApiRegistry | null = null;
+  private thisProviderDisposable: any = null;
 
   constructor(
     private platformId: Object,
@@ -35,7 +40,7 @@ export class MonacoEditorCore {
 
       if (typeof window.require === 'function') {
         window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-        (window as any).MonacoEnvironment = {
+        const env: Environment = {
           getWorkerUrl: function (workerId: string, label: string) {
             const baseUrl = window.location.origin + '/assets/monaco';
             return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
@@ -46,6 +51,7 @@ export class MonacoEditorCore {
             `)}`;
           }
         };
+        window.MonacoEnvironment = env;
 
         window.require(['vs/editor/editor.main'], () => {
           this.configureMonacoLanguages();
@@ -53,30 +59,103 @@ export class MonacoEditorCore {
           this.enhancedSQLService.registerSQLLanguageService(window.monaco);
           this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
 
+          // JS dil servis ayarı (yalnızca JS)
+          const js = window.monaco.languages.typescript.javascriptDefaults;
+          js.setCompilerOptions({
+            noLib: true,                // DOM/Node/ES lib'leri kapalı → yabancı öneri yok
+            checkJs: true,
+            allowNonTsExtensions: true,
+          });
+
+          // Registry'yi doldur + provider kaydı
+          this.thisApiRegistry = new ThisApiRegistry();
+          // (İstersen sayfa/tenant bağlamına göre scope ver)
+          this.thisApiRegistry.setScope('global:v1');
+
+          // — Buraya kendi servislerini ekliyorsun —
+          // Örnek:
+          this.thisApiRegistry.addObject('api', {
+            doc: 'Backend API',
+            props: { baseUrl: { type: 'string' } },
+            methods: {
+              getUser:   { sig: '(id: number) => Promise<any>' },
+              listUsers: { sig: '() => Promise<any[]>' },
+            }
+          });
+          this.thisApiRegistry.addObject('ui', {
+            doc: 'UI helpers',
+            methods: { toast: { sig: '(msg: string) => void' } }
+          });
+
+          // Orders servisi
+          this.thisApiRegistry.addObject('orders', {
+            doc: 'Order management service',
+            methods: {
+              get:    { sig: '(id: number) => Promise<any>' },
+              list:   { sig: '(status?: string) => Promise<any[]>' },
+              cancel: { sig: '(id: number) => Promise<void>' },
+            }
+          });
+
+          // Auth servisi
+          this.thisApiRegistry.addObject('auth', {
+            doc: 'Authentication service',
+            props: { 
+              isLoggedIn: { type: 'boolean' },
+              user: { type: 'object' }
+            },
+            methods: {
+              login:    { sig: '(credentials: any) => Promise<boolean>' },
+              logout:   { sig: '() => void' },
+              getToken: { sig: '() => string' }
+            }
+          });
+
+          // Provider kaydı
+          this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
+
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
             const language = this.fileManager.detectLanguageFromCode(selectedScript.code);
-            this.editor = window.monaco.editor.create(editorContainer, {
+            
+            // JS modeli için özel ayarlar
+            const isJavaScript = language === 'javascript';
+            const editorOptions: any = {
               value: selectedScript.code,
               language: language,
               theme: editorTheme,
               automaticLayout: true,
               glyphMargin: true,
-              suggestOnTriggerCharacters: true,
-              quickSuggestions: {
+              parameterHints: { enabled: true },
+            };
+
+            if (isJavaScript) {
+              // Sadece JS modelinde geçerli - this. dışında öneri kapalı
+              editorOptions.quickSuggestions = { other: false, comments: false, strings: false };
+              editorOptions.suggestOnTriggerCharacters = false;
+              editorOptions.wordBasedSuggestions = 'off';
+              editorOptions.tabCompletion = 'off';
+              editorOptions.suggest = { 
+                showWords: false, 
+                preview: false, 
+                showVariables: false, 
+                showFunctions: true, 
+                showMethods: true, 
+                showClasses: true 
+              };
+            } else {
+              // Diğer diller için normal ayarlar
+              editorOptions.suggestOnTriggerCharacters = true;
+              editorOptions.quickSuggestions = {
                 other: true,
                 comments: true,
                 strings: true
-              },
-              acceptSuggestionOnCommitCharacter: true,
-              acceptSuggestionOnEnter: 'on',
-              tabCompletion: 'on',
-              wordBasedSuggestions: 'currentDocument',
-              parameterHints: {
-                enabled: true,
-                cycle: true
-              },
-              suggest: {
+              };
+              editorOptions.acceptSuggestionOnCommitCharacter = true;
+              editorOptions.acceptSuggestionOnEnter = 'on';
+              editorOptions.tabCompletion = 'on';
+              editorOptions.wordBasedSuggestions = 'currentDocument';
+              editorOptions.suggest = {
                 localityBonus: true,
                 snippetsPreventQuickSuggestions: false,
                 showIcons: true,
@@ -107,7 +186,11 @@ export class MonacoEditorCore {
                 showIssues: true,
                 showUsers: true,
                 showColors: true
-              },
+              };
+            }
+
+            // Ortak ayarlar
+            Object.assign(editorOptions, {
               typescript: {
                 suggest: {
                   includeCompletionsForModuleExports: true,
@@ -160,6 +243,32 @@ export class MonacoEditorCore {
                 enabled: true
               }
             });
+
+            this.editor = window.monaco.editor.create(editorContainer, editorOptions);
+
+            // JS modeli için özel event handler'lar
+            if (isJavaScript) {
+              // Ctrl+Space'i tamamen engelle (politikamız: sadece this.)
+              this.editor.onKeyDown((e: any) => {
+                if ((e.ctrlKey || e.metaKey) && (e.code?.toLowerCase() === 'space')) {
+                  e.preventDefault(); 
+                  e.stopPropagation?.();
+                }
+              });
+
+              // Sadece 'this.' veya 'this.obj.' yazılınca biz açalım
+              this.editor.onDidType((ch: string) => {
+                if (ch !== '.') return;
+                const pos = this.editor.getPosition();
+                const model = this.editor.getModel();
+                if (!pos || !model) return;
+                const left = model.getLineContent(pos.lineNumber).slice(0, pos.column);
+
+                if (/\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left)) {
+                  this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                }
+              });
+            }
 
             this.initializeHoverProvider();
             this.addContextMenuActions();
@@ -430,6 +539,9 @@ export class MonacoEditorCore {
     }
     if (this.hoverProvider) {
       this.hoverProvider.dispose();
+    }
+    if (this.thisProviderDisposable) {
+      this.thisProviderDisposable.dispose();
     }
   }
 } 
