@@ -4,13 +4,19 @@ import { MonacoLanguageRegistryService } from '../../../services/monaco-language
 import { EnhancedSQLLanguageService } from '../../../services/enhanced-sql-language.service';
 import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-manager.service';
 import { MonacoEditorHoverService } from '../services/monaco-editor-hover.service';
-import { ThisContextRegistry } from '../../../features/intellisense/this-context-registry.service';
+import { ThisApiRegistry } from '../../../core/intellisense/this-api-registry.service';
+import { registerThisOnlyProvider } from '../../../core/intellisense/this-only-provider';
+import { registerRuntimeGlobal } from '../../../core/intellisense/this-api-registry.service';
+import { registerRuntimeGlobals } from '../../../core/intellisense/runtime-globals';
+import { THIS_GLOBALS } from '../../../core/intellisense/di/this-globals.token';
+import { Inject, Optional } from '@angular/core';
+import type { Environment } from 'monaco-editor';
 
 declare global {
   interface Window {
     require: any;
     monaco: any;
-    MonacoEnvironment?: import('monaco-editor').Environment;
+    MonacoEnvironment?: Environment | undefined;
   }
 }
 
@@ -18,6 +24,8 @@ export class MonacoEditorCore {
   editor: any;
   intelliSenseProvider: MonacoIntelliSenseProvider | null = null;
   hoverProvider: any = null;
+  private thisApiRegistry: ThisApiRegistry | null = null;
+  private thisProviderDisposable: any = null;
 
   constructor(
     private platformId: Object,
@@ -25,8 +33,10 @@ export class MonacoEditorCore {
     private enhancedSQLService: EnhancedSQLLanguageService,
     private fileManager: MonacoEditorFileManagerService,
     private hoverService: MonacoEditorHoverService,
-    private thisContextRegistry: ThisContextRegistry
-  ) {}
+    @Optional() @Inject(THIS_GLOBALS) private injectedGlobals: Array<Record<string, any>> = []
+  ) {
+    console.log('🔍 MonacoEditorCore constructor - injectedGlobals:', this.injectedGlobals);
+  }
 
   initializeMonaco(editorContainer: HTMLElement, selectedScriptIndex: number, editorTheme: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -37,7 +47,7 @@ export class MonacoEditorCore {
 
       if (typeof window.require === 'function') {
         window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
-        (window as any).MonacoEnvironment = {
+        const env: Environment = {
           getWorkerUrl: function (workerId: string, label: string) {
             const baseUrl = window.location.origin + '/assets/monaco';
             return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
@@ -48,113 +58,166 @@ export class MonacoEditorCore {
             `)}`;
           }
         };
+        window.MonacoEnvironment = env;
 
         window.require(['vs/editor/editor.main'], () => {
           this.configureMonacoLanguages();
           this.monacoLanguageRegistry.initializeLanguageServices(window.monaco);
           this.enhancedSQLService.registerSQLLanguageService(window.monaco);
-          // this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco); // JavaScript için devre dışı
+          // initializeMonacoIntelliSense'i JS için devre dışı bırak - sadece diğer diller için çalıştır
+          // this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
+
+          // JS dil servis ayarı (yalnızca JS)
+          const js = window.monaco.languages.typescript.javascriptDefaults;
+          js.setCompilerOptions({
+            noLib: true,                // DOM/Node/ES lib'leri kapalı → yabancı öneri yok
+            checkJs: false,             // JS kontrolünü kapat
+            allowNonTsExtensions: true,
+          });
+          
+          // TypeScript provider'ını JS için devre dışı bırak
+          js.setDiagnosticsOptions({
+            noSemanticValidation: true,
+            noSyntaxValidation: true
+          });
+
+          // Registry'yi doldur + provider kaydı
+          this.thisApiRegistry = new ThisApiRegistry();
+          // (İstersen sayfa/tenant bağlamına göre scope ver)
+          this.thisApiRegistry.setScope('global:v1');
+
+          // Runtime globals tanımla ve kaydet
+          const runtimeGlobals = {
+            api: { 
+              baseUrl: 'https://api.example.com', 
+              getUser(id: number) { /* ... */ },
+              listUsers() { /* ... */ }
+            },
+            auth: { 
+              isLoggedIn: false, 
+              user: {},
+              login(credentials: any) { /* ... */ },
+              logout() { /* ... */ },
+              getToken() { return ''; }
+            },
+            test: { 
+              name: 'Test Service',
+              version: 1.0,
+              isActive: true,
+              data: [1, 2, 3],
+              config: { debug: true, timeout: 5000 },
+              runTest(testName: string, options?: any) { /* ... */ },
+              getResults() { return []; },
+              validate(input: string, rules: string[]) { return true; },
+              async fetchData(url: string, params?: object) { /* ... */ }
+            },
+            database: {
+              connection: 'mongodb://localhost:27017',
+              isConnected: true,
+              collections: ['users', 'orders', 'products'],
+              connect() { /* ... */ },
+              disconnect() { /* ... */ },
+              query(sql: string) { /* ... */ },
+              insert(table: string, data: any) { /* ... */ },
+              update(table: string, id: number, data: any) { /* ... */ },
+              delete(table: string, id: number) { /* ... */ }
+            },
+            form: {
+              isValid: false,
+              isDirty: false,
+              isSubmitting: false,
+              errors: {} as any,
+              values: {} as any,
+              setValue(field: string, value: any) { /* ... */ },
+              getValue(field: string) { return this.values[field]; },
+              validate() { /* ... */ },
+              submit() { /* ... */ },
+              reset() { /* ... */ },
+              setErrors(errors: object) { /* ... */ },
+              clearErrors() { /* ... */ },
+              isFieldValid(field: string) { /* ... */ },
+              getFieldError(field: string) { /* ... */ }
+            },
+            notification: {
+              isEnabled: true,
+              soundEnabled: false,
+              defaultDuration: 5000,
+              position: 'top-right',
+              queue: [],
+              show(message: string, type?: 'info' | 'success' | 'warning' | 'error') { /* ... */ },
+              success(message: string, duration?: number) { /* ... */ },
+              error(message: string, duration?: number) { /* ... */ },
+              warning(message: string, duration?: number) { /* ... */ },
+              info(message: string, duration?: number) { /* ... */ },
+              clear() { /* ... */ },
+              clearAll() { /* ... */ },
+              setPosition(position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') { /* ... */ },
+              enableSound() { /* ... */ },
+              disableSound() { /* ... */ }
+            }
+          };
+
+          // DI'dan gelenleri birleştir
+          const diGlobals = Object.assign({}, ...this.injectedGlobals);
+          const merged = { ...diGlobals, ...runtimeGlobals };
+          
+          console.log('🔍 DI globals:', Object.keys(diGlobals));
+          console.log('🔍 Runtime globals:', Object.keys(runtimeGlobals));
+          console.log('🔍 Merged globals:', Object.keys(merged));
+          
+          registerRuntimeGlobals(merged, {
+            emitDts: true,
+            monaco: window.monaco,
+            registry: this.thisApiRegistry
+          });
+
+          // Context durumunu logla
+          this.thisApiRegistry.logContext();
+
+          // Canlı güncelleme örneği (runtime'da obje değiştiğinde)
+          // this.thisApiRegistry.refreshThisContext('api', updatedApiObj);
+
+          // Provider kaydı
+          this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
 
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
             const language = this.fileManager.detectLanguageFromCode(selectedScript.code);
             
-            // JavaScript için özel ayarlar
+            // initializeMonacoIntelliSense'i sadece JavaScript olmayan diller için çalıştır
+            if (language !== 'javascript') {
+              this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
+            }
+            
+            // JS modeli için özel ayarlar
+            const isJavaScript = language === 'javascript';
             const editorOptions: any = {
               value: selectedScript.code,
               language: language,
               theme: editorTheme,
               automaticLayout: true,
               glyphMargin: true,
-              acceptSuggestionOnCommitCharacter: true,
-              acceptSuggestionOnEnter: 'on',
-              tabCompletion: 'on',
-              wordBasedSuggestions: 'currentDocument',
-              parameterHints: {
-                enabled: true,
-                cycle: true
-              },
-              folding: true,
-              foldingStrategy: 'auto',
-              showFoldingControls: 'always',
-              unfoldOnClickAfterEndOfLine: false,
-              foldingHighlight: true,
-              foldingImportsByDefault: false,
-              links: true,
-              colorDecorators: true,
-              lightbulb: {
-                enabled: true
-              },
-              codeActionsOnSave: {
-                'source.organizeImports': true
-              }
+              parameterHints: { enabled: true },
             };
 
-            // JavaScript için özel ayarlar
-            if (language === 'javascript') {
-              editorOptions.quickSuggestions = {
-                other: true,
-                comments: false,
-                strings: false
-              };
-              editorOptions.suggestOnTriggerCharacters = true; // . tuşunda önerileri aç
-              editorOptions.inlineSuggest = { enabled: false };
-              editorOptions.suggest = {
-                localityBonus: true,
-                snippetsPreventQuickSuggestions: false,
-                showIcons: true,
-                maxVisibleSuggestions: 12,
-                insertMode: 'replace',
-                filterGraceful: true,
-                showKeywords: false,
-                showSnippets: false,
-                showWords: false,
-                showClasses: false,
-                showFunctions: false,
-                showConstructors: false,
-                showFields: false,
+            if (isJavaScript) {
+              // Sadece JS modelinde geçerli - this. dışında öneri kapalı
+              editorOptions.quickSuggestions = { other: false, comments: false, strings: false };
+              editorOptions.suggestOnTriggerCharacters = false;
+              editorOptions.wordBasedSuggestions = 'off';
+              editorOptions.tabCompletion = 'off';
+              editorOptions.suggest = { 
+                showWords: false, 
+                preview: false, 
                 showVariables: false,
-                showInterfaces: false,
-                showModules: false,
-                showProperties: true, // Properties'i aç
-                showEvents: false,
-                showOperators: false,
-                showUnits: false,
-                showValues: false,
-                showConstants: false,
-                showEnums: false,
-                showEnumMembers: false,
-                showReferences: false,
-                showFolders: false,
-                showTypeParameters: false,
-                showIssues: false,
-                showUsers: false,
-                showColors: false
+                showProperties: false,   // property/field önerilerini gizler
+                showModules: false,      // kapat → {} ikonlu öğeler (ve globalThis) gizlenir
+                showKeywords: false,     // keyword önerilerini gizler
+                showSnippets: false,     // snippet önerilerini gizler
+                showFunctions: false,    // dosya içi fonksiyonları gizler
+                showMethods: true,       // sadece this.obj.method() için aç
+                showClasses: true        // aç → kökler mavi C ikonu ile görünür
               };
-              editorOptions.javascript = {
-                suggest: {
-                  includeCompletionsForModuleExports: false,
-                  includeCompletionsWithSnippetText: false,
-                  includeCompletionsWithInsertText: false
-                }
-              };
-              
-              // TypeScript provider'larını da kapat
-              editorOptions.typescript = {
-                suggest: {
-                  includeCompletionsForModuleExports: false,
-                  includeCompletionsWithSnippetText: false,
-                  includeCompletionsWithInsertText: false
-                }
-              };
-              
-              // TypeScript dil servisini JavaScript için devre dışı bırak
-              window.monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-                noSemanticValidation: true,
-                noSyntaxValidation: false
-              });
-              
-              console.log('[MonacoEditorCore] JavaScript mode: All default providers disabled');
             } else {
               // Diğer diller için normal ayarlar
               editorOptions.suggestOnTriggerCharacters = true;
@@ -163,6 +226,10 @@ export class MonacoEditorCore {
                 comments: true,
                 strings: true
               };
+              editorOptions.acceptSuggestionOnCommitCharacter = true;
+              editorOptions.acceptSuggestionOnEnter = 'on';
+              editorOptions.tabCompletion = 'on';
+              editorOptions.wordBasedSuggestions = 'currentDocument';
               editorOptions.suggest = {
                 localityBonus: true,
                 snippetsPreventQuickSuggestions: false,
@@ -195,28 +262,88 @@ export class MonacoEditorCore {
                 showUsers: true,
                 showColors: true
               };
-              editorOptions.typescript = {
-                suggest: {
-                  includeCompletionsForModuleExports: true,
-                  includeCompletionsWithSnippetText: true,
-                  includeCompletionsWithInsertText: true
-                }
-              };
-              editorOptions.javascript = {
-                suggest: {
-                  includeCompletionsForModuleExports: true,
-                  includeCompletionsWithSnippetText: true,
-                  includeCompletionsWithInsertText: true
-                }
-              };
             }
+
+            // Ortak ayarlar
+            Object.assign(editorOptions, {
+              typescript: {
+                suggest: {
+                  includeCompletionsForModuleExports: true,
+                  includeCompletionsWithSnippetText: true,
+                  includeCompletionsWithInsertText: true
+                }
+              },
+              javascript: {
+                suggest: {
+                  includeCompletionsForModuleExports: true,
+                  includeCompletionsWithSnippetText: true,
+                  includeCompletionsWithInsertText: true
+                }
+              },
+              folding: true,
+              foldingStrategy: 'auto',
+              showFoldingControls: 'always',
+              unfoldOnClickAfterEndOfLine: false,
+              foldingHighlight: true,
+              foldingImportsByDefault: false,
+              links: true,
+              colorDecorators: true,
+              lightbulb: {
+                enabled: true
+              },
+              codeActionsOnSave: {
+                'source.organizeImports': true
+              },
+              formatOnPaste: true,
+              formatOnType: true,
+              autoIndent: 'full',
+              bracketPairColorization: {
+                enabled: true
+              },
+              guides: {
+                bracketPairs: 'active',
+                bracketPairsHorizontal: 'active',
+                highlightActiveBracketPair: true,
+                indentation: true,
+                highlightActiveIndentation: true
+              },
+              unicodeHighlight: {
+                ambiguousCharacters: true,
+                invisibleCharacters: true
+              },
+              inlineSuggest: {
+                enabled: true
+              },
+              stickyScroll: {
+                enabled: true
+              }
+            });
 
             this.editor = window.monaco.editor.create(editorContainer, editorOptions);
 
-            // ThisContext Registry'yi editor oluşturulduktan sonra başlat
-            console.log('[MonacoEditorCore] Initializing ThisContextRegistry after editor creation...');
-            this.thisContextRegistry.init(window.monaco);
-            console.log('[MonacoEditorCore] ThisContextRegistry initialized successfully');
+            // JS modeli için özel event handler'lar
+            if (isJavaScript) {
+              // Ctrl+Space'i tamamen engelle (politikamız: sadece this.)
+              this.editor.onKeyDown((e: any) => {
+                if ((e.ctrlKey || e.metaKey) && (e.code?.toLowerCase() === 'space')) {
+                  e.preventDefault(); 
+                  e.stopPropagation?.();
+                }
+              });
+
+              // Sadece 'this.' veya 'this.obj.' yazılınca biz açalım
+              this.editor.onDidType((ch: string) => {
+                if (ch !== '.') return;
+                const pos = this.editor.getPosition();
+                const model = this.editor.getModel();
+                if (!pos || !model) return;
+                const left = model.getLineContent(pos.lineNumber).slice(0, pos.column);
+
+                if (/\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left)) {
+                  this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                }
+              });
+            }
 
             this.initializeHoverProvider();
             this.addContextMenuActions();
@@ -487,6 +614,9 @@ export class MonacoEditorCore {
     }
     if (this.hoverProvider) {
       this.hoverProvider.dispose();
+    }
+    if (this.thisProviderDisposable) {
+      this.thisProviderDisposable.dispose();
     }
   }
 } 
