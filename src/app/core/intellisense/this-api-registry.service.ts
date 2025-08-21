@@ -40,10 +40,70 @@ export interface ThisObjectDef {
 @Injectable({ providedIn: 'root' })
 export class ThisApiRegistry {
   private objects = new Map<string, ThisObjectDef>();
+  private scope = 'global';
+  private cache = new Map<string, any[]>();
+  private lru = new Map<string, number>();
+  
+  // Ham nesneleri ve kök ikonlarını tut
+  private raw = new Map<string, any>();
+  private rootKind = new Map<string, number>(); // CompletionItemKind değerini tutacağız
 
-  // Ölçek için: aynı component'te birden çok sayfa/tenant kullanıyorsan scope ayırabilirsin
-  private scopeKey = 'global';
-  setScope(key: string) { this.scopeKey = key; }
+  setScope(scope: string) {
+    this.scope = scope;
+  }
+
+  // Basit heuristics
+  private isEnumLike(v: any): boolean {
+    if (!v || typeof v !== 'object') return false;
+    const vals = Object.values(v);
+    return vals.length > 0 && vals.every(x =>
+      ['string','number','boolean','undefined'].includes(typeof x)
+    );
+  }
+
+  private isNamespaceLike(v: any): boolean {
+    if (!v || typeof v !== 'object') return false;
+    const entries = Object.entries(v);
+    const fnCount = entries.filter(([,val]) => typeof val === 'function').length;
+    return fnCount >= 1 && entries.every(([,val]) =>
+      typeof val === 'function' || (val && typeof val === 'object')
+    );
+  }
+
+  // Kök ikonunu hesapla (override varsa onu kullan)
+  inferRootKind(name: string, monaco: typeof import('monaco-editor'), override?: number): number {
+    if (override !== undefined) {
+      this.rootKind.set(name, override);
+      return override;
+    }
+    if (this.rootKind.has(name)) return this.rootKind.get(name)!;
+
+    const v = this.raw.get(name);
+    let kind = monaco.languages.CompletionItemKind.Class; // varsayılan
+
+    if (this.isEnumLike(v)) {
+      kind = monaco.languages.CompletionItemKind.Enum;
+    } else if (this.isNamespaceLike(v)) {
+      kind = monaco.languages.CompletionItemKind.Module;
+    }
+
+    this.rootKind.set(name, kind);
+    return kind;
+  }
+
+  // Dışarıdan manuel ayar için basit API
+  setRootKind(name: string, kind: number): void {
+    this.rootKind.set(name, kind);
+  }
+
+  // Üye ikonları için isteğe bağlı ek iyileştirme
+  private isEventName(k: string): boolean {
+    return /^on[A-Z]/.test(k) || /^(add|remove)Listener$/.test(k);
+  }
+
+  private isCollectionName(k: string): boolean {
+    return /(list|items|collection|collections|keys|values)$/i.test(k);
+  }
 
   addObject(name: string, def: ThisObjectDef) { this.objects.set(name, def); }
 
@@ -67,18 +127,25 @@ export class ThisApiRegistry {
   getMembers(obj: string, monaco: typeof import('monaco-editor')) {
     const o = this.objects.get(obj);
     if (!o) return [];
+    
     const props = Object.entries(o.props ?? {}).map(([p, pd]) => ({
       label: p,
-      kind: monaco.languages.CompletionItemKind.Property,
+      kind: this.isCollectionName(p)
+        ? monaco.languages.CompletionItemKind.Folder // koleksiyon benzeri alanlar
+        : monaco.languages.CompletionItemKind.Property,
       insertText: p,
       detail: `${obj}.${p}: ${pd.type}`,
     }));
+    
     const methods = Object.entries(o.methods ?? {}).map(([m, md]) => ({
       label: md.sig?.startsWith('(') ? `${m}${md.sig}` : m,
-      kind: monaco.languages.CompletionItemKind.Method,
+      kind: this.isEventName(m)
+        ? monaco.languages.CompletionItemKind.Event
+        : monaco.languages.CompletionItemKind.Method,
       insertText: m,
       detail: `${obj}.${m}`,
     }));
+    
     return [...props, ...methods];
   }
 
@@ -167,31 +234,31 @@ export class ThisApiRegistry {
 
   /** Sadece değer ver → registry'ye otomatik tanım ekle */
   addObjectFromValue(name: string, value: any) {
+    this.raw.set(name, value); // ham obje sakla
     const def: ThisObjectDef = { props: {}, methods: {} };
+    
     if (value && typeof value === 'object') {
-      // Descriptor bazlı tarama (getter/setter için)
+      // Object.getOwnPropertyDescriptors ile daha doğru çıkarım
       const descriptors = Object.getOwnPropertyDescriptors(value);
       
       for (const [key, descriptor] of Object.entries(descriptors)) {
-        // Getter/setter kontrolü
         if (descriptor.get || descriptor.set) {
-          (def.props as any)[key] = { type: this._jsTypeOf(descriptor.get ? descriptor.get.call(value) : undefined) };
-          continue;
-        }
-        
-        // Normal property/method kontrolü
-        const v = (value as any)[key];
-        if (typeof v === 'function') {
-          const params = this._paramNames(v);
+          // Getter/Setter - Property olarak ekle
+          (def.props as any)[key] = { type: 'any' };
+        } else if (typeof descriptor.value === 'function') {
+          // Method
+          const params = this._paramNames(descriptor.value);
           const sig = `(${params.map(p => `${p}: any`).join(', ')}) => any`;
           (def.methods as any)[key] = { sig };
         } else {
-          (def.props as any)[key] = { type: this._jsTypeOf(v) };
+          // Property
+          (def.props as any)[key] = { type: this._jsTypeOf(descriptor.value) };
         }
       }
     }
-    this.upsertObject(name, def); // mevcutla birleştirir
-    return def;                   // (opsiyonel) d.ts üretmek istersen kullan
+    
+    this.upsertObject(name, def);
+    return def;
   }
 
   /** (Opsiyonel) Çıkarımdan ambient .d.ts üret */

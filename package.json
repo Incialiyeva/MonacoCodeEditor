@@ -40,7 +40,8 @@
     "sql.js": "^1.13.0",
     "tslib": "^2.3.0",
     "vscode-css-languageservice": "^6.3.7",
-    "vscode-languageserver": "^9.0.1"
+    "vscode-languageserver": "^9.0.1",
+    "zone.js": "^0.15.1"
   },
   "devDependencies": {
     "@angular/build": "^20.1.1",

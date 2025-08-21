@@ -45,6 +45,7 @@ export class MonacoEditorCore {
         return;
       }
 
+      // Monaco editörünü başlat
       if (typeof window.require === 'function') {
         window.require.config({ paths: { 'vs': '/assets/monaco/vs' } });
         const env: Environment = {
@@ -61,6 +62,20 @@ export class MonacoEditorCore {
         window.MonacoEnvironment = env;
 
         window.require(['vs/editor/editor.main'], () => {
+          // Özel tema tanımla - Class ikonunu mavi yap
+          window.monaco.editor.defineTheme('vs-dark-custom', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+              'symbolIcon.classForeground': '#4FC3F7', // mavi class ikonu
+              'symbolIcon.moduleForeground': '#4FC3F7', // mavi module ikonu
+              'symbolIcon.methodForeground': '#C586C0', // mor method ikonu
+              'symbolIcon.propertyForeground': '#DCDCAA', // sarı property ikonu
+              'symbolIcon.eventForeground': '#DCDCAA', // sarı event ikonu
+            }
+          });
+
           this.configureMonacoLanguages();
           this.monacoLanguageRegistry.initializeLanguageServices(window.monaco);
           this.enhancedSQLService.registerSQLLanguageService(window.monaco);
@@ -86,83 +101,31 @@ export class MonacoEditorCore {
           // (İstersen sayfa/tenant bağlamına göre scope ver)
           this.thisApiRegistry.setScope('global:v1');
 
-          // Runtime globals tanımla ve kaydet
-          const runtimeGlobals = {
-            api: { 
-              baseUrl: 'https://api.example.com', 
-              getUser(id: number) { /* ... */ },
-              listUsers() { /* ... */ }
-            },
-            auth: { 
-              isLoggedIn: false, 
-              user: {},
-              login(credentials: any) { /* ... */ },
-              logout() { /* ... */ },
-              getToken() { return ''; }
-            },
-            test: { 
-              name: 'Test Service',
-              version: 1.0,
-              isActive: true,
-              data: [1, 2, 3],
-              config: { debug: true, timeout: 5000 },
-              runTest(testName: string, options?: any) { /* ... */ },
-              getResults() { return []; },
-              validate(input: string, rules: string[]) { return true; },
-              async fetchData(url: string, params?: object) { /* ... */ }
-            },
-            database: {
-              connection: 'mongodb://localhost:27017',
-              isConnected: true,
-              collections: ['users', 'orders', 'products'],
-              connect() { /* ... */ },
-              disconnect() { /* ... */ },
-              query(sql: string) { /* ... */ },
-              insert(table: string, data: any) { /* ... */ },
-              update(table: string, id: number, data: any) { /* ... */ },
-              delete(table: string, id: number) { /* ... */ }
-            },
-            form: {
-              isValid: false,
-              isDirty: false,
-              isSubmitting: false,
-              errors: {} as any,
-              values: {} as any,
-              setValue(field: string, value: any) { /* ... */ },
-              getValue(field: string) { return this.values[field]; },
-              validate() { /* ... */ },
-              submit() { /* ... */ },
-              reset() { /* ... */ },
-              setErrors(errors: object) { /* ... */ },
-              clearErrors() { /* ... */ },
-              isFieldValid(field: string) { /* ... */ },
-              getFieldError(field: string) { /* ... */ }
-            },
-            notification: {
+          // İsteğe bağlı: Özel ikon override'ları
+          this.thisApiRegistry.setRootKind('database', window.monaco.languages.CompletionItemKind.Module);
+          this.thisApiRegistry.setRootKind('form', window.monaco.languages.CompletionItemKind.Interface);
+          this.thisApiRegistry.setRootKind('events', window.monaco.languages.CompletionItemKind.Event);
+
+          // 🆕 YENİ: Hardcoded obje ekleme (test amaçlı)
+          const hardcodedGlobals = {
+            payments: {
+              currency: 'USD',
               isEnabled: true,
-              soundEnabled: false,
-              defaultDuration: 5000,
-              position: 'top-right',
-              queue: [],
-              show(message: string, type?: 'info' | 'success' | 'warning' | 'error') { /* ... */ },
-              success(message: string, duration?: number) { /* ... */ },
-              error(message: string, duration?: number) { /* ... */ },
-              warning(message: string, duration?: number) { /* ... */ },
-              info(message: string, duration?: number) { /* ... */ },
-              clear() { /* ... */ },
-              clearAll() { /* ... */ },
-              setPosition(position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') { /* ... */ },
-              enableSound() { /* ... */ },
-              disableSound() { /* ... */ }
+              supportedCurrencies: ['USD', 'EUR', 'TRY'],
+              processPayment(amount: number, currency: string) { /* ... */ },
+              getBalance() { return 1000; },
+              getExchangeRate(from: string, to: string) { /* ... */ },
+              refund(transactionId: string, amount: number) { /* ... */ },
+              getTransactionHistory() { return []; }
             }
           };
 
-          // DI'dan gelenleri birleştir
+          // DI'dan gelenleri kullan + hardcoded objeleri ekle
           const diGlobals = Object.assign({}, ...this.injectedGlobals);
-          const merged = { ...diGlobals, ...runtimeGlobals };
+          const merged = { ...diGlobals, ...hardcodedGlobals };
           
           console.log('🔍 DI globals:', Object.keys(diGlobals));
-          console.log('🔍 Runtime globals:', Object.keys(runtimeGlobals));
+          console.log('🔍 Hardcoded globals:', Object.keys(hardcodedGlobals));
           console.log('🔍 Merged globals:', Object.keys(merged));
           
           registerRuntimeGlobals(merged, {
@@ -320,6 +283,9 @@ export class MonacoEditorCore {
             });
 
             this.editor = window.monaco.editor.create(editorContainer, editorOptions);
+
+            // Özel temayı uygula
+            window.monaco.editor.setTheme('vs-dark-custom');
 
             // JS modeli için özel event handler'lar
             if (isJavaScript) {
