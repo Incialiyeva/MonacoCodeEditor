@@ -1,4 +1,4 @@
-import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, AfterViewInit, ViewChild, Inject, PLATFORM_ID, Renderer2, OnInit, Input, OnChanges, SimpleChanges, Optional } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -20,6 +20,9 @@ import { MonacoEditorCore } from './core/monaco-editor-core';
 import { MonacoEditorActions } from './actions/monaco-editor-actions';
 import { MonacoEditorDebug } from './debug/monaco-editor-debug';
 import { MonacoEditorUI } from './ui/monaco-editor-ui';
+
+// DI imports
+import { THIS_GLOBALS } from '../../core/intellisense/di/this-globals.token';
 
 declare global {
   interface Window {
@@ -62,7 +65,8 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
     private tabManager: MonacoEditorTabManagerService,
     private codeExecutor: MonacoEditorCodeExecutorService,
     private fileManager: MonacoEditorFileManagerService,
-    private hoverService: MonacoEditorHoverService
+    private hoverService: MonacoEditorHoverService,
+    @Optional() @Inject(THIS_GLOBALS) private thisGlobals: any
   ) {
     // Modüler sınıfları başlat - sıralama önemli
     this.editorUI = new MonacoEditorUI(
@@ -75,7 +79,8 @@ export class MonacoEditorComponent implements AfterViewInit, OnInit, OnChanges {
       this.monacoLanguageRegistry,
       this.enhancedSQLService,
       this.fileManager,
-      this.hoverService
+      this.hoverService,
+      this.thisGlobals
     );
 
     this.editorActions = new MonacoEditorActions(

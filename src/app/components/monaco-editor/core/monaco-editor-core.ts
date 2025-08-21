@@ -6,6 +6,10 @@ import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-m
 import { MonacoEditorHoverService } from '../services/monaco-editor-hover.service';
 import { ThisApiRegistry } from '../../../core/intellisense/this-api-registry.service';
 import { registerThisOnlyProvider } from '../../../core/intellisense/this-only-provider';
+import { registerRuntimeGlobal } from '../../../core/intellisense/this-api-registry.service';
+import { registerRuntimeGlobals } from '../../../core/intellisense/runtime-globals';
+import { THIS_GLOBALS } from '../../../core/intellisense/di/this-globals.token';
+import { Inject, Optional } from '@angular/core';
 import type { Environment } from 'monaco-editor';
 
 declare global {
@@ -28,8 +32,11 @@ export class MonacoEditorCore {
     private monacoLanguageRegistry: MonacoLanguageRegistryService,
     private enhancedSQLService: EnhancedSQLLanguageService,
     private fileManager: MonacoEditorFileManagerService,
-    private hoverService: MonacoEditorHoverService
-  ) {}
+    private hoverService: MonacoEditorHoverService,
+    @Optional() @Inject(THIS_GLOBALS) private injectedGlobals: Array<Record<string, any>> = []
+  ) {
+    console.log('🔍 MonacoEditorCore constructor - injectedGlobals:', this.injectedGlobals);
+  }
 
   initializeMonaco(editorContainer: HTMLElement, selectedScriptIndex: number, editorTheme: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -57,14 +64,21 @@ export class MonacoEditorCore {
           this.configureMonacoLanguages();
           this.monacoLanguageRegistry.initializeLanguageServices(window.monaco);
           this.enhancedSQLService.registerSQLLanguageService(window.monaco);
-          this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
+          // initializeMonacoIntelliSense'i JS için devre dışı bırak - sadece diğer diller için çalıştır
+          // this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
 
           // JS dil servis ayarı (yalnızca JS)
           const js = window.monaco.languages.typescript.javascriptDefaults;
           js.setCompilerOptions({
             noLib: true,                // DOM/Node/ES lib'leri kapalı → yabancı öneri yok
-            checkJs: true,
+            checkJs: false,             // JS kontrolünü kapat
             allowNonTsExtensions: true,
+          });
+          
+          // TypeScript provider'ını JS için devre dışı bırak
+          js.setDiagnosticsOptions({
+            noSemanticValidation: true,
+            noSyntaxValidation: true
           });
 
           // Registry'yi doldur + provider kaydı
@@ -72,44 +86,96 @@ export class MonacoEditorCore {
           // (İstersen sayfa/tenant bağlamına göre scope ver)
           this.thisApiRegistry.setScope('global:v1');
 
-          // — Buraya kendi servislerini ekliyorsun —
-          // Örnek:
-          this.thisApiRegistry.addObject('api', {
-            doc: 'Backend API',
-            props: { baseUrl: { type: 'string' } },
-            methods: {
-              getUser:   { sig: '(id: number) => Promise<any>' },
-              listUsers: { sig: '() => Promise<any[]>' },
-            }
-          });
-          this.thisApiRegistry.addObject('ui', {
-            doc: 'UI helpers',
-            methods: { toast: { sig: '(msg: string) => void' } }
-          });
-
-          // Orders servisi
-          this.thisApiRegistry.addObject('orders', {
-            doc: 'Order management service',
-            methods: {
-              get:    { sig: '(id: number) => Promise<any>' },
-              list:   { sig: '(status?: string) => Promise<any[]>' },
-              cancel: { sig: '(id: number) => Promise<void>' },
-            }
-          });
-
-          // Auth servisi
-          this.thisApiRegistry.addObject('auth', {
-            doc: 'Authentication service',
-            props: { 
-              isLoggedIn: { type: 'boolean' },
-              user: { type: 'object' }
+          // Runtime globals tanımla ve kaydet
+          const runtimeGlobals = {
+            api: { 
+              baseUrl: 'https://api.example.com', 
+              getUser(id: number) { /* ... */ },
+              listUsers() { /* ... */ }
             },
-            methods: {
-              login:    { sig: '(credentials: any) => Promise<boolean>' },
-              logout:   { sig: '() => void' },
-              getToken: { sig: '() => string' }
+            auth: { 
+              isLoggedIn: false, 
+              user: {},
+              login(credentials: any) { /* ... */ },
+              logout() { /* ... */ },
+              getToken() { return ''; }
+            },
+            test: { 
+              name: 'Test Service',
+              version: 1.0,
+              isActive: true,
+              data: [1, 2, 3],
+              config: { debug: true, timeout: 5000 },
+              runTest(testName: string, options?: any) { /* ... */ },
+              getResults() { return []; },
+              validate(input: string, rules: string[]) { return true; },
+              async fetchData(url: string, params?: object) { /* ... */ }
+            },
+            database: {
+              connection: 'mongodb://localhost:27017',
+              isConnected: true,
+              collections: ['users', 'orders', 'products'],
+              connect() { /* ... */ },
+              disconnect() { /* ... */ },
+              query(sql: string) { /* ... */ },
+              insert(table: string, data: any) { /* ... */ },
+              update(table: string, id: number, data: any) { /* ... */ },
+              delete(table: string, id: number) { /* ... */ }
+            },
+            form: {
+              isValid: false,
+              isDirty: false,
+              isSubmitting: false,
+              errors: {} as any,
+              values: {} as any,
+              setValue(field: string, value: any) { /* ... */ },
+              getValue(field: string) { return this.values[field]; },
+              validate() { /* ... */ },
+              submit() { /* ... */ },
+              reset() { /* ... */ },
+              setErrors(errors: object) { /* ... */ },
+              clearErrors() { /* ... */ },
+              isFieldValid(field: string) { /* ... */ },
+              getFieldError(field: string) { /* ... */ }
+            },
+            notification: {
+              isEnabled: true,
+              soundEnabled: false,
+              defaultDuration: 5000,
+              position: 'top-right',
+              queue: [],
+              show(message: string, type?: 'info' | 'success' | 'warning' | 'error') { /* ... */ },
+              success(message: string, duration?: number) { /* ... */ },
+              error(message: string, duration?: number) { /* ... */ },
+              warning(message: string, duration?: number) { /* ... */ },
+              info(message: string, duration?: number) { /* ... */ },
+              clear() { /* ... */ },
+              clearAll() { /* ... */ },
+              setPosition(position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') { /* ... */ },
+              enableSound() { /* ... */ },
+              disableSound() { /* ... */ }
             }
+          };
+
+          // DI'dan gelenleri birleştir
+          const diGlobals = Object.assign({}, ...this.injectedGlobals);
+          const merged = { ...diGlobals, ...runtimeGlobals };
+          
+          console.log('🔍 DI globals:', Object.keys(diGlobals));
+          console.log('🔍 Runtime globals:', Object.keys(runtimeGlobals));
+          console.log('🔍 Merged globals:', Object.keys(merged));
+          
+          registerRuntimeGlobals(merged, {
+            emitDts: true,
+            monaco: window.monaco,
+            registry: this.thisApiRegistry
           });
+
+          // Context durumunu logla
+          this.thisApiRegistry.logContext();
+
+          // Canlı güncelleme örneği (runtime'da obje değiştiğinde)
+          // this.thisApiRegistry.refreshThisContext('api', updatedApiObj);
 
           // Provider kaydı
           this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
@@ -117,6 +183,11 @@ export class MonacoEditorCore {
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
             const language = this.fileManager.detectLanguageFromCode(selectedScript.code);
+            
+            // initializeMonacoIntelliSense'i sadece JavaScript olmayan diller için çalıştır
+            if (language !== 'javascript') {
+              this.intelliSenseProvider = initializeMonacoIntelliSense(window.monaco);
+            }
             
             // JS modeli için özel ayarlar
             const isJavaScript = language === 'javascript';
@@ -138,10 +209,14 @@ export class MonacoEditorCore {
               editorOptions.suggest = { 
                 showWords: false, 
                 preview: false, 
-                showVariables: false, 
-                showFunctions: true, 
-                showMethods: true, 
-                showClasses: true 
+                showVariables: false,
+                showProperties: false,   // property/field önerilerini gizler
+                showModules: false,      // kapat → {} ikonlu öğeler (ve globalThis) gizlenir
+                showKeywords: false,     // keyword önerilerini gizler
+                showSnippets: false,     // snippet önerilerini gizler
+                showFunctions: false,    // dosya içi fonksiyonları gizler
+                showMethods: true,       // sadece this.obj.method() için aç
+                showClasses: true        // aç → kökler mavi C ikonu ile görünür
               };
             } else {
               // Diğer diller için normal ayarlar
