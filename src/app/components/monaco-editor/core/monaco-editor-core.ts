@@ -7,7 +7,6 @@ import { MonacoEditorHoverService } from '../services/monaco-editor-hover.servic
 import { ThisApiRegistry } from '../../../core/intellisense/this-api-registry.service';
 import { registerThisOnlyProvider } from '../../../core/intellisense/this-only-provider';
 import { registerRootOnlyProvider } from '../../../core/intellisense/root-only-provider';
-import { registerLocalSymbolsProvider } from '../../../core/intellisense/local-symbols-provider';
 import { registerRuntimeGlobal } from '../../../core/intellisense/this-api-registry.service';
 import { registerRuntimeGlobals } from '../../../core/intellisense/runtime-globals';
 import { THIS_GLOBALS } from '../../../core/intellisense/di/this-globals.token';
@@ -29,7 +28,6 @@ export class MonacoEditorCore {
   private thisApiRegistry: ThisApiRegistry | null = null;
   private thisProviderDisposable: any = null;
   private rootProviderDisposable: any = null;
-  private localProviderDisposable: any = null;
 
   constructor(
     private platformId: Object,
@@ -151,7 +149,6 @@ export class MonacoEditorCore {
           // Provider kaydı
           this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
           this.rootProviderDisposable = registerRootOnlyProvider(window.monaco, this.thisApiRegistry);
-          this.localProviderDisposable = registerLocalSymbolsProvider(window.monaco, { maxItems: 100 });
 
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
@@ -187,7 +184,7 @@ export class MonacoEditorCore {
                 showModules: true,       // Module tipindeki kökleri de göster
                 showKeywords: false,     // keyword önerilerini gizler
                 showSnippets: false,     // snippet önerilerini gizler
-                showFunctions: true,     // dosya içi fonksiyonları göster
+                showFunctions: false,    // dosya içi fonksiyonları gizler
                 showMethods: true,       // sadece this.obj.method() için aç
                 showClasses: true,       // aç → kökler mavi C ikonu ile görünür
                 maxVisibleSuggestions: 20, // Tüm 12 öğeyi göster
@@ -319,19 +316,14 @@ export class MonacoEditorCore {
 
               // Sadece 'this.' veya 'this.obj.' yazılınca biz açalım
               this.editor.onDidType((ch: string) => {
+                if (ch !== '.') return;
                 const pos = this.editor.getPosition();
                 const model = this.editor.getModel();
                 if (!pos || !model) return;
-                
-                // Yeni yazılan karakter dahil olacak şekilde pozisyonu ayarla
-                const currentPos = { lineNumber: pos.lineNumber, column: pos.column };
-                const left = model.getLineContent(currentPos.lineNumber).slice(0, currentPos.column);
-
-                console.log('🔍 onDidType triggered:', { ch, left });
+                const left = model.getLineContent(pos.lineNumber).slice(0, pos.column);
 
                 // Mevcut: this. ve this.xxx. tetikler
                 if (/\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left)) {
-                  console.log('🔍 Triggering this.* suggestions');
                   this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
                   return;
                 }
@@ -344,22 +336,6 @@ export class MonacoEditorCore {
                   if (roots.has(root)) {
                     console.log('🔍 Triggering suggestions for root:', root);
                     this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
-                    return;
-                  }
-                }
-
-                // Yeni: kelime karakterleri için local symbols provider (sadece this.* ve root.* olmayan bağlamlarda)
-                const isWord = /[A-Za-z0-9_$]/.test(ch);
-                if (isWord) {
-                  // this.* ve root.* bağlamlarını kontrol et
-                  const isThisContext = /\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left);
-                  const isRootContext = /\b([A-Za-z_$][\w$]*)\.$/.test(left);
-                  
-                  if (!isThisContext && !isRootContext) {
-                    console.log('🔍 Triggering local symbols for word:', ch, 'left:', left);
-                    this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
-                  } else {
-                    console.log('🔍 Skipping local symbols - this.* or root.* context detected');
                   }
                 }
               });
@@ -640,9 +616,6 @@ export class MonacoEditorCore {
     }
     if (this.rootProviderDisposable) {
       this.rootProviderDisposable.dispose();
-    }
-    if (this.localProviderDisposable) {
-      this.localProviderDisposable.dispose();
     }
   }
 } 

@@ -1,13 +1,6 @@
 import type * as monaco from 'monaco-editor';
 import { ThisApiRegistry } from './this-api-registry.service';
 
-/**
- * RegExp için özel karakterleri escape et
- */
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 export function registerThisOnlyProvider(
   monacoRef: typeof monaco,
   registry: ThisApiRegistry
@@ -23,60 +16,35 @@ export function registerThisOnlyProvider(
         endColumn: position.column
       };
 
-      // this.<prefix>  (kökler)
+      // this.<prefix>  (kök obje listesi)
       const root = line.match(/\bthis\.(\w*)$/);
       if (root) {
-        const [, prefix = ''] = root;
-        console.log('🔍 this. provider triggered:', { line, prefix, roots: registry.getRootNames() });
-
-        // UI donmasın diye microtask'e bırak
-        return new Promise<monaco.languages.CompletionList>(resolve => {
-          setTimeout(() => {
-            const labels = registry.getRootNames();
-            
-            // Local symbols'ları filtrele - sadece global kökler kalsın
-            const filteredLabels = labels.filter(name => {
-              // Dosya içi fonksiyon/değişken adlarını filtrele
-              const model = monacoRef.editor.getModels()[0]; // Aktif model
-              if (model) {
-                const text = model.getValue();
-                // function onInit, const testVar gibi local tanımları kontrol et
-                const localPatterns = [
-                  new RegExp(`\\bfunction\\s+${escapeRegExp(name)}\\s*\\(`, 'g'),
-                  new RegExp(`\\b(?:const|let|var)\\s+${escapeRegExp(name)}\\b`, 'g'),
-                  new RegExp(`\\bclass\\s+${escapeRegExp(name)}\\b`, 'g')
-                ];
-                
-                for (const pattern of localPatterns) {
-                  if (pattern.test(text)) {
-                    console.log(`🔍 Filtering out local symbol: ${name}`);
-                    return false; // Local symbol, filtrele
-                  }
-                }
-              }
-              return true; // Global symbol, tut
-            });
-
-            const suggestions = filteredLabels.map((name, index) => ({
-              label: name,
-              kind: registry.inferRootKind(name, monacoRef), // ✅ dinamik
-              insertText: name,
-              detail: 'this.' + name,
-              sortText: `0000_${index.toString().padStart(3, '0')}`, // Her öğe için unique sortText
-              filterText: name, // Sadece isim - Monaco'nun filtrelemesini bypass et
-              preselect: index === 0, // İlk öğe preselect
-              range: range,
-              command: undefined, // Force no command
-              additionalTextEdits: undefined // Force no additional edits
-            }));
-            
-            console.log('📝 Suggestions:', suggestions);
-            resolve({ 
-              suggestions,
-              incomplete: false // Tamamlandı, Monaco filtreleme yapmasın
-            });
-          }, 0);
-        });
+        const prefix = root[1] ?? '';
+        const roots = registry.getRootNames();
+        console.log('🔍 this. provider triggered:', { line, prefix, roots });
+        
+        // Filtreleme işlemi
+        const labels = prefix ? roots.filter(r => r.startsWith(prefix)) : roots;
+        
+        // Tüm öğeleri döndür - Monaco'nun filtrelemesini bypass et
+        const suggestions = labels.map((name, index) => ({
+          label: name,
+          kind: registry.inferRootKind(name, monacoRef), // ✅ dinamik
+          insertText: name,
+          detail: 'this.' + name,
+          sortText: `0000_${index.toString().padStart(3, '0')}`, // Her öğe için unique sortText
+          filterText: name, // Sadece isim - Monaco'nun filtrelemesini bypass et
+          preselect: index === 0, // Sadece ilk öğe preselect
+          range: range,
+          command: undefined, // Force no command
+          additionalTextEdits: undefined // Force no additional edits
+        }));
+        
+        console.log('📝 Suggestions:', suggestions);
+        return { 
+          suggestions,
+          incomplete: false // Tamamlandı, Monaco filtreleme yapmasın
+        };
       }
 
       // this.obj.<prefix>  (üyeler)

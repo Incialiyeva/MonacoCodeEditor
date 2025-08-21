@@ -175,54 +175,6 @@ const analytics = {
   setUserId(id: string) { /* ... */ },
   getSessionData() { return {}; }
 };
-const reports = {
-  version: '1.0.0',
-  isLoading: false,
-  lastResult: null as any[] | null,
-  filters: {
-    dateFrom: null as string | null,
-    dateTo: null as string | null,
-    hotelId: null as number | null,
-  },
-
-  setFilters(partial: Partial<{dateFrom:string|null; dateTo:string|null; hotelId:number|null}>) {
-    Object.assign(this.filters, partial);
-    return this; // chaining
-  },
-
-  async fetch(type: 'daily' | 'weekly' | 'monthly') {
-    this.isLoading = true;
-    // ⬇️ burada gerçek API’ne bağlanırsın
-    await new Promise(r => setTimeout(r, 300));
-    const rows = [
-      { date: '2025-01-01', revenue: 1234 },
-      { date: '2025-01-02', revenue: 1450 },
-    ];
-    this.lastResult = rows;
-    this.isLoading = false;
-    this._emitUpdate({ type, rows });
-    return rows;
-  },
-
-  exportCSV(rows?: any[]) {
-    const data = rows ?? this.lastResult ?? [];
-    const header = Object.keys(data[0] ?? {}).join(',');
-    const lines = data.map(r => Object.values(r).join(','));
-    return [header, ...lines].join('\n');
-  },
-
-  reset() {
-    this.filters = { dateFrom: null, dateTo: null, hotelId: null };
-    this.lastResult = null;
-    this.isLoading = false;
-    this._emitUpdate({ type: 'reset' });
-  },
-
-  // --- mini event sistemi (onUpdate/off) ---
-  _listeners: new Set<(e:any)=>void>(),
-  onUpdate(fn: (e:any)=>void) { this._listeners.add(fn); return () => this._listeners.delete(fn); },
-  _emitUpdate(e:any) { for (const fn of this._listeners) try { fn(e); } catch {} }
-};
 
 const recordService = {
   records: [] as any[],
@@ -253,8 +205,7 @@ export const appConfig: ApplicationConfig = {
     provideThisGlobal('storage', storage),
     provideThisGlobal('analytics', analytics),
     provideThisGlobal('recordService', recordService),
-    provideThisGlobal('reports', reports),
-    provideThisGlobal('recordService', recordService),
+      
 
   ]
 };
