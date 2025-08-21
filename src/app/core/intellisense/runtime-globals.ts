@@ -11,7 +11,7 @@ import { registerRuntimeGlobal } from './this-api-registry.service';
  * @example
  * ```ts
  * const globals = {
- *   api, auth, orders, ui, test, form, payments
+ *   api, auth, orders, ui, test, form
  * };
  * 
  * registerRuntimeGlobals(globals, {

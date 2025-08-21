@@ -22,8 +22,7 @@ export const THIS_GLOBALS = new InjectionToken<Record<string, any>>('THIS_GLOBAL
  * @NgModule({
  *   providers: [
  *     provideThisGlobal('form', form),
- *     provideThisGlobal('payments', paymentsObj),
- *   ]
+ *    
  * })
  * export class FeatureModule {}
  * ```
@@ -49,7 +48,7 @@ export function provideThisGlobal(name: string, value: any): Provider {
  * 
  * const globals = {
  *   form: { /* form objesi *\/ },
- *   payments: { /* payments objesi *\/ },
+ *  
  *   analytics: { /* analytics objesi *\/ }
  * };
  * 

@@ -1,14 +1,56 @@
+import 'zone.js';
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideThisGlobal } from './core/intellisense/di/this-globals.token';
-import { provideZonelessChangeDetection } from '@angular/core';
 
 // Test objeleri
 const api = { 
-  baseUrl: 'https://api.example.com', 
-  getUser(id: number) { /* ... */ },
-  listUsers() { /* ... */ }
+  baseUrl: 'https://api.example.com',
+  authToken: null as string | null,
+  
+  // HTTP metodları
+  async get(endpoint: string, params?: Record<string, any>) {
+    console.log('GET request to:', endpoint, 'params:', params);
+    return { data: { id: 1, name: 'Test User' }, status: 200 };
+  },
+  
+  async post(endpoint: string, data?: any) {
+    console.log('POST request to:', endpoint, 'data:', data);
+    return { data: { id: 2, ...data }, status: 201 };
+  },
+  
+  async put(endpoint: string, data?: any) {
+    console.log('PUT request to:', endpoint, 'data:', data);
+    return { data: { id: 1, ...data }, status: 200 };
+  },
+  
+  async patch(endpoint: string, data?: any) {
+    console.log('PATCH request to:', endpoint, 'data:', data);
+    return { data: { id: 1, ...data }, status: 200 };
+  },
+  
+  async delete(endpoint: string) {
+    console.log('DELETE request to:', endpoint);
+    return { data: null, status: 204 };
+  },
+  
+  // Legacy metodlar (geriye uyumluluk)
+  getUser(id: number) { return this.get(`/users/${id}`); },
+  listUsers() { return this.get('/users'); },
+  
+  // Utility metodları
+  setAuthToken(token: string) { 
+    console.log('Setting auth token:', token);
+    this.authToken = token; 
+  },
+  
+  getAuthToken() { return this.authToken; },
+  
+  setBaseUrl(url: string) { 
+    console.log('Setting base URL:', url);
+    this.baseUrl = url; 
+  }
 };
 
 const auth = { 
@@ -18,6 +60,8 @@ const auth = {
   logout() { /* ... */ },
   getToken() { return ''; }
 };
+
+
 
 const test = { 
   name: 'Test Service',
@@ -29,18 +73,6 @@ const test = {
   getResults() { return []; },
   validate(input: string, rules: string[]) { return true; },
   async fetchData(url: string, params?: object) { /* ... */ }
-};
-
-const database = {
-  connection: 'mongodb://localhost:27017',
-  isConnected: true,
-  collections: ['users', 'orders', 'products'],
-  connect() { /* ... */ },
-  disconnect() { /* ... */ },
-  query(sql: string) { /* ... */ },
-  insert(table: string, data: any) { /* ... */ },
-  update(table: string, id: number, data: any) { /* ... */ },
-  delete(table: string, id: number) { /* ... */ }
 };
 
 const form = {
@@ -86,6 +118,7 @@ const status = {
   COMPLETED: 'completed',
   FAILED: 'failed'
 };
+
 
 // 🆕 YENİ: Namespace-like obje (heuristic: Module ikonu)
 const utils = {
@@ -143,6 +176,19 @@ const analytics = {
   getSessionData() { return {}; }
 };
 
+const recordService = {
+  records: [] as any[],
+  create(data: any) { /* ... */ },
+  findById(id: number) { /* ... */ },
+  findAll(filters?: any) { /* ... */ },
+  update(id: number, data: any) { /* ... */ },
+  delete(id: number) { /* ... */ },
+  count() { return 0; },
+  clear() { /* ... */ },
+  export(format: 'json' | 'csv' = 'json') { /* ... */ },
+  import(data: any[]) { /* ... */ }
+};
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
@@ -150,7 +196,6 @@ export const appConfig: ApplicationConfig = {
     provideThisGlobal('api', api),
     provideThisGlobal('auth', auth),
     provideThisGlobal('test', test),
-    provideThisGlobal('database', database),
     provideThisGlobal('form', form),
     provideThisGlobal('notification', notification),
     provideThisGlobal('status', status),
@@ -159,6 +204,8 @@ export const appConfig: ApplicationConfig = {
     provideThisGlobal('logger', logger),
     provideThisGlobal('storage', storage),
     provideThisGlobal('analytics', analytics),
-    provideZonelessChangeDetection(),
+    provideThisGlobal('recordService', recordService),
+      
+
   ]
 };
