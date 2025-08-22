@@ -10,6 +10,7 @@ import { registerRootOnlyProvider } from '../../../core/intellisense/root-only-p
 import { registerRuntimeGlobal } from '../../../core/intellisense/this-api-registry.service';
 import { registerRuntimeGlobals } from '../../../core/intellisense/runtime-globals';
 import { THIS_GLOBALS } from '../../../core/intellisense/di/this-globals.token';
+import { registerEnhancedJavaScriptProvider } from '../../../core/intellisense/enhanced-javascript-provider';
 import { Inject, Optional } from '@angular/core';
 import type { Environment } from 'monaco-editor';
 
@@ -28,6 +29,7 @@ export class MonacoEditorCore {
   private thisApiRegistry: ThisApiRegistry | null = null;
   private thisProviderDisposable: any = null;
   private rootProviderDisposable: any = null;
+  private enhancedJavaScriptProviderDisposable: any = null;
 
   constructor(
     private platformId: Object,
@@ -149,6 +151,9 @@ export class MonacoEditorCore {
           // Provider kaydı
           this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
           this.rootProviderDisposable = registerRootOnlyProvider(window.monaco, this.thisApiRegistry);
+          
+          // Enhanced JavaScript provider'ı kaydet
+          this.enhancedJavaScriptProviderDisposable = registerEnhancedJavaScriptProvider(window.monaco, this.thisApiRegistry);
 
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
@@ -171,32 +176,52 @@ export class MonacoEditorCore {
             };
 
             if (isJavaScript) {
-              // Sadece JS modelinde geçerli - this. dışında öneri kapalı
-              editorOptions.quickSuggestions = { other: false, comments: false, strings: false };
-              editorOptions.suggestOnTriggerCharacters = false;
-              editorOptions.wordBasedSuggestions = 'off';
-              editorOptions.tabCompletion = 'off';
+              // JavaScript için gelişmiş otomatik tamamlama ayarları
+              editorOptions.quickSuggestions = { 
+                other: true, 
+                comments: true, 
+                strings: true 
+              };
+              editorOptions.suggestOnTriggerCharacters = true;
+              editorOptions.wordBasedSuggestions = 'off'; // Sadece semboller gelsin, rastgele kelimeler gelmesin
+              editorOptions.tabCompletion = 'on';
               editorOptions.suggest = { 
-                showWords: false, 
-                preview: false, 
-                showVariables: false,
-                showProperties: true,    // property/field önerilerini aç
-                showModules: true,       // Module tipindeki kökleri de göster
-                showKeywords: false,     // keyword önerilerini gizler
-                showSnippets: false,     // snippet önerilerini gizler
-                showFunctions: false,    // dosya içi fonksiyonları gizler
-                showMethods: true,       // sadece this.obj.method() için aç
-                showClasses: true,       // aç → kökler mavi C ikonu ile görünür
-                maxVisibleSuggestions: 20, // Tüm 12 öğeyi göster
-                filterGraceful: false,   // Strict filtreleme kapat
+                showWords: false, // Rastgele kelime önerilerini kapat
+                preview: true, 
+                showVariables: true,
+                showProperties: true,
+                showModules: true,
+                showKeywords: true,
+                showSnippets: true,
+                showFunctions: true, // JS dil servisinin fonksiyon önerilerini aç
+                showMethods: true,
+                showClasses: true,
+                showConstructors: true,
+                showFields: true,
+                showInterfaces: true,
+                showEvents: true,
+                showOperators: true,
+                showUnits: true,
+                showValues: true,
+                showConstants: true,
+                showEnums: true,
+                showEnumMembers: true,
+                showReferences: true,
+                showFolders: true,
+                showTypeParameters: true,
+                showIssues: true,
+                showUsers: true,
+                showColors: true,
+                maxVisibleSuggestions: 20,
+                filterGraceful: true,
                 snippetsPreventQuickSuggestions: false,
-                localityBonus: false,    // Alfabetik sıralamayı koru
-                showIcons: true,         // İkonları göster
-                insertMode: 'replace',   // Metin değiştirme modu
-                acceptSuggestionOnCommitCharacter: true, // Commit karakterlerini kabul et
-                acceptSuggestionOnEnter: 'on', // Enter ile kabul et
-                showStatusBar: true,     // Status bar'da bilgi göster
-                showDeprecated: true     // Deprecated öğeleri de göster
+                localityBonus: true,
+                showIcons: true,
+                insertMode: 'replace',
+                acceptSuggestionOnCommitCharacter: true,
+                acceptSuggestionOnEnter: 'on',
+                showStatusBar: true,
+                showDeprecated: true
               };
             } else {
               // Diğer diller için normal ayarlar
@@ -316,25 +341,36 @@ export class MonacoEditorCore {
 
               // Sadece 'this.' veya 'this.obj.' yazılınca biz açalım
               this.editor.onDidType((ch: string) => {
-                if (ch !== '.') return;
                 const pos = this.editor.getPosition();
                 const model = this.editor.getModel();
                 if (!pos || !model) return;
                 const left = model.getLineContent(pos.lineNumber).slice(0, pos.column);
 
-                // Mevcut: this. ve this.xxx. tetikler
-                if (/\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left)) {
-                  this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                // Nokta karakteri için özel kontroller
+                if (ch === '.') {
+                  // Mevcut: this. ve this.xxx. tetikler
+                  if (/\bthis\.$/.test(left) || /\bthis\.\w+\.$/.test(left)) {
+                    this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                    return;
+                  }
+
+                  // Yeni: kayıtlı kökler için "form.", "api." vb.
+                  const m = left.match(/\b([A-Za-z_$][\w$]*)\.$/);
+                  if (m && this.thisApiRegistry) {
+                    const root = m[1];
+                    const roots = new Set(this.thisApiRegistry.getRootNames());
+                    if (roots.has(root)) {
+                      console.log('🔍 Triggering suggestions for root:', root);
+                      this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                    }
+                  }
                   return;
                 }
 
-                // Yeni: kayıtlı kökler için "form.", "api." vb.
-                const m = left.match(/\b([A-Za-z_$][\w$]*)\.$/);
-                if (m && this.thisApiRegistry) {
-                  const root = m[1];
-                  const roots = new Set(this.thisApiRegistry.getRootNames());
-                  if (roots.has(root)) {
-                    console.log('🔍 Triggering suggestions for root:', root);
+                // Harf/sayı yazıldığında da öneriler aç (this. ve root. bağlamında değilken)
+                if (/[A-Za-z0-9_$]/.test(ch)) {
+                  // this. veya root. bağlamında değilse öneriler aç
+                  if (!/\bthis\./.test(left) && !/\b([A-Za-z_$][\w$]*)\./.test(left)) {
                     this.editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
                   }
                 }
@@ -616,6 +652,9 @@ export class MonacoEditorCore {
     }
     if (this.rootProviderDisposable) {
       this.rootProviderDisposable.dispose();
+    }
+    if (this.enhancedJavaScriptProviderDisposable) {
+      this.enhancedJavaScriptProviderDisposable.dispose();
     }
   }
 } 

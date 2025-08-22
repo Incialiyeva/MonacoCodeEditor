@@ -60,6 +60,13 @@ const auth = {
   logout() { /* ... */ },
   getToken() { return ''; }
 };
+const math = { 
+  isLoggedIn: false, 
+  user: {},
+  login(credentials: any) { /* ... */ },
+  logout() { /* ... */ },
+  getToken() { return ''; }
+};
 
 
 
@@ -205,7 +212,7 @@ export const appConfig: ApplicationConfig = {
     provideThisGlobal('storage', storage),
     provideThisGlobal('analytics', analytics),
     provideThisGlobal('recordService', recordService),
-      
+    provideThisGlobal('math', math),
 
   ]
 };
