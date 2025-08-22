@@ -2,7 +2,7 @@ import 'zone.js';
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
-import { provideThisGlobal } from './core/intellisense/di/this-globals.token';
+import { provideThisGlobal } from './intellisense/core/di/this-globals.token';
 
 // Test objeleri
 const api = { 

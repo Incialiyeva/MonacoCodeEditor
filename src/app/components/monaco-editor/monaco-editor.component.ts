@@ -22,7 +22,7 @@ import { MonacoEditorDebug } from './debug/monaco-editor-debug';
 import { MonacoEditorUI } from './ui/monaco-editor-ui';
 
 // DI imports
-import { THIS_GLOBALS } from '../../core/intellisense/di/this-globals.token';
+import { THIS_GLOBALS } from '../../intellisense/core/di/this-globals.token';
 
 declare global {
   interface Window {

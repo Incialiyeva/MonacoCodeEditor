@@ -1,16 +1,15 @@
 import { isPlatformBrowser } from '@angular/common';
-import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../../../features/intellisense/monaco-intellisense.provider';
+import { initializeMonacoIntelliSense, MonacoIntelliSenseProvider } from '../../../intellisense/languages/monaco-intellisense.provider';
 import { MonacoLanguageRegistryService } from '../../../services/monaco-language-registry.service';
 import { EnhancedSQLLanguageService } from '../../../services/enhanced-sql-language.service';
 import { MonacoEditorFileManagerService } from '../services/monaco-editor-file-manager.service';
 import { MonacoEditorHoverService } from '../services/monaco-editor-hover.service';
-import { ThisApiRegistry } from '../../../core/intellisense/this-api-registry.service';
-import { registerThisOnlyProvider } from '../../../core/intellisense/this-only-provider';
-import { registerRootOnlyProvider } from '../../../core/intellisense/root-only-provider';
-import { registerRuntimeGlobal } from '../../../core/intellisense/this-api-registry.service';
-import { registerRuntimeGlobals } from '../../../core/intellisense/runtime-globals';
-import { THIS_GLOBALS } from '../../../core/intellisense/di/this-globals.token';
-import { registerEnhancedJavaScriptProvider } from '../../../core/intellisense/enhanced-javascript-provider';
+import { ThisApiRegistry } from '../../../intellisense/core/registry/this-api-registry.service';
+import { registerThisOnlyProvider } from '../../../intellisense/core/providers/this-only-provider';
+import { registerRootOnlyProvider } from '../../../intellisense/core/providers/root-only-provider';
+import { registerRuntimeGlobal } from '../../../intellisense/core/registry/this-api-registry.service';
+import { registerRuntimeGlobals } from '../../../intellisense/core/registry/runtime-globals';
+import { THIS_GLOBALS } from '../../../intellisense/core/di/this-globals.token';
 import { Inject, Optional } from '@angular/core';
 import type { Environment } from 'monaco-editor';
 
@@ -29,7 +28,6 @@ export class MonacoEditorCore {
   private thisApiRegistry: ThisApiRegistry | null = null;
   private thisProviderDisposable: any = null;
   private rootProviderDisposable: any = null;
-  private enhancedJavaScriptProviderDisposable: any = null;
 
   constructor(
     private platformId: Object,
@@ -152,9 +150,6 @@ export class MonacoEditorCore {
           this.thisProviderDisposable = registerThisOnlyProvider(window.monaco, this.thisApiRegistry);
           this.rootProviderDisposable = registerRootOnlyProvider(window.monaco, this.thisApiRegistry);
           
-          // Enhanced JavaScript provider'ı kaydet
-          this.enhancedJavaScriptProviderDisposable = registerEnhancedJavaScriptProvider(window.monaco, this.thisApiRegistry);
-
           const selectedScript = this.fileManager.getScriptTemplate(selectedScriptIndex);
           if (selectedScript) {
             const language = this.fileManager.detectLanguageFromCode(selectedScript.code);
@@ -652,9 +647,6 @@ export class MonacoEditorCore {
     }
     if (this.rootProviderDisposable) {
       this.rootProviderDisposable.dispose();
-    }
-    if (this.enhancedJavaScriptProviderDisposable) {
-      this.enhancedJavaScriptProviderDisposable.dispose();
     }
   }
 } 

@@ -1,5 +1,5 @@
 import type * as monaco from 'monaco-editor';
-import { ThisApiRegistry } from './this-api-registry.service';
+import { ThisApiRegistry } from '../registry/this-api-registry.service';
 
 export function registerRootOnlyProvider(
   monacoRef: typeof monaco,
